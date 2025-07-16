@@ -1,0 +1,80 @@
+import 'package:flutter/material.dart';
+import '../../models/user_model.dart';
+import '../../config/app_router.dart';
+
+class DirectorSidebar extends StatelessWidget {
+  final UserModel? currentUser;
+  final VoidCallback onLogout;
+
+  const DirectorSidebar({
+    super.key,
+    required this.currentUser,
+    required this.onLogout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          UserAccountsDrawerHeader(
+            decoration: const BoxDecoration(color: Colors.purple),
+            accountName: Text(currentUser?.fullName ?? 'Director'),
+            accountEmail: Text(currentUser?.email ?? ''),
+            currentAccountPicture: const CircleAvatar(
+              backgroundColor: Colors.white,
+              child: Icon(Icons.person, color: Colors.purple),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.dashboard),
+            title: const Text('Dashboard'),
+            onTap: () => Navigator.pop(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.people),
+            title: const Text('Manage Users'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.manageUsers),
+          ),
+          ListTile(
+            leading: const Icon(Icons.approval),
+            title: const Text('Approve Users'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.approveUsers),
+          ),
+          ListTile(
+            leading: const Icon(Icons.work),
+            title: const Text('All Work'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.verifyWork),
+          ),
+          ListTile(
+            leading: const Icon(Icons.business),
+            title: const Text('Customers'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.customers),
+          ),
+          ListTile(
+            leading: const Icon(Icons.location_city),
+            title: const Text('Offices'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.manageOffices),
+          ),
+          ListTile(
+            leading: const Icon(Icons.analytics),
+            title: const Text('Reports'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.reports),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Settings'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Logout'),
+            onTap: onLogout,
+          ),
+        ],
+      ),
+    );
+  }
+}

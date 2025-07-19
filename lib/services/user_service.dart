@@ -14,6 +14,7 @@ class UserService {
     }
 
     print('Fetching profile for user ID: ${user.id}');
+    print('User email: ${user.email}');
 
     try {
       final response = await _supabase
@@ -23,9 +24,38 @@ class UserService {
           .single();
 
       print('Profile response: $response');
-      return UserModel.fromJson(response);
+
+      if (response != null) {
+        final userModel = UserModel.fromJson(response);
+        print('User model created successfully: ${userModel.email}');
+        return userModel;
+      } else {
+        print('No user profile found in database');
+        return null;
+      }
     } catch (e) {
       print('Error fetching user profile: $e');
+      print('Error type: ${e.runtimeType}');
+      return null;
+    }
+  }
+
+  // Get user by ID
+  Future<UserModel?> getUserById(String userId) async {
+    try {
+      final response = await _supabase
+          .from('users')
+          .select()
+          .eq('id', userId)
+          .single();
+
+      if (response != null) {
+        return UserModel.fromJson(response);
+      } else {
+        return null;
+      }
+    } catch (e) {
+      print('Error fetching user by ID: $e');
       return null;
     }
   }
@@ -212,7 +242,34 @@ class UserService {
 
     List<UserModel> teamMembers = [];
 
-    if (currentUser.role == UserRole.employee && currentUser.isLead) {
+    if (currentUser.role == UserRole.director) {
+      // Directors can see all users
+      final response = await _supabase
+          .from('users')
+          .select()
+          .eq('status', 'active')
+          .neq('id', userId)
+          .order('full_name', ascending: true);
+
+      teamMembers = (response as List)
+          .map((user) => UserModel.fromJson(user))
+          .toList();
+    } else if (currentUser.role == UserRole.manager) {
+      // Managers can see users from their office
+      if (currentUser.officeId != null) {
+        final response = await _supabase
+            .from('users')
+            .select()
+            .eq('office_id', currentUser.officeId!)
+            .eq('status', 'active')
+            .neq('id', userId)
+            .order('full_name', ascending: true);
+
+        teamMembers = (response as List)
+            .map((user) => UserModel.fromJson(user))
+            .toList();
+      }
+    } else if (currentUser.role == UserRole.employee && currentUser.isLead) {
       // For leads: show employees from the same office
       if (currentUser.officeId != null) {
         final response = await _supabase
@@ -229,7 +286,7 @@ class UserService {
             .toList();
       }
     } else {
-      // For managers and directors: show direct reports
+      // For other users: show direct reports
       final response = await _supabase
           .from('users')
           .select()

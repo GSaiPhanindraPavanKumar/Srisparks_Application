@@ -93,106 +93,132 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
   }
 
   Widget _buildDashboard() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Welcome message
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isTablet = constraints.maxWidth > 600;
+        final isMobile = constraints.maxWidth <= 600;
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(isMobile ? 12.0 : 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Welcome message
+              Card(
+                child: Padding(
+                  padding: EdgeInsets.all(isMobile ? 12.0 : 16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.person, color: Colors.green),
-                      const SizedBox(width: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.person, color: Colors.green),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Welcome, ${_currentUser?.fullName ?? 'Employee'}',
+                              style: TextStyle(
+                                fontSize: isMobile ? 16 : 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       Text(
-                        'Welcome, ${_currentUser?.fullName ?? 'Employee'}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                        'Role: ${_currentUser?.roleDisplayName ?? 'Employee'}',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: isMobile ? 12 : 14,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Role: ${_currentUser?.roleDisplayName ?? 'Employee'}',
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-          // Performance metrics
-          const Text(
-            'Your Performance',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          _buildPerformanceGrid(),
-          const SizedBox(height: 24),
+              // Performance metrics
+              Text(
+                'Your Performance',
+                style: TextStyle(
+                  fontSize: isMobile ? 18 : 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildPerformanceGrid(isMobile),
+              const SizedBox(height: 24),
 
-          // Recent work
-          const Text(
-            'Recent Work',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          _buildRecentWork(),
-          const SizedBox(height: 24),
+              // Recent work
+              Text(
+                'Recent Work',
+                style: TextStyle(
+                  fontSize: isMobile ? 18 : 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildRecentWork(isMobile),
+              const SizedBox(height: 24),
 
-          // Quick actions
-          const Text(
-            'Quick Actions',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              // Quick actions
+              Text(
+                'Quick Actions',
+                style: TextStyle(
+                  fontSize: isMobile ? 18 : 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildQuickActions(isMobile),
+            ],
           ),
-          const SizedBox(height: 12),
-          _buildQuickActions(),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildPerformanceGrid() {
+  Widget _buildPerformanceGrid(bool isMobile) {
     final stats = _stats ?? {};
 
     return GridView.count(
-      crossAxisCount: 2,
+      crossAxisCount: isMobile ? 2 : 4,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.5,
+      crossAxisSpacing: isMobile ? 8 : 12,
+      mainAxisSpacing: isMobile ? 8 : 12,
+      childAspectRatio: isMobile ? 1.3 : 1.5,
       children: [
         _buildMetricCard(
           'Total Work',
           '${stats['total_work'] ?? 0}',
           Icons.work,
           Colors.blue,
+          isMobile,
         ),
         _buildMetricCard(
           'Completed',
           '${stats['completed_work'] ?? 0}',
           Icons.check_circle,
           Colors.green,
+          isMobile,
         ),
         _buildMetricCard(
           'Completion Rate',
           '${stats['completion_rate'] ?? 0}%',
           Icons.trending_up,
           Colors.orange,
+          isMobile,
         ),
         _buildMetricCard(
           'Overdue',
           '${stats['overdue_work'] ?? 0}',
           Icons.warning,
           Colors.red,
+          isMobile,
         ),
       ],
     );
@@ -203,23 +229,43 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     String value,
     IconData icon,
     Color color,
+    bool isMobile,
   ) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(isMobile ? 6.0 : 12.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            Flexible(
+              child: Icon(icon, size: isMobile ? 20 : 28, color: color),
             ),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-              textAlign: TextAlign.center,
+            SizedBox(height: isMobile ? 2 : 4),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: isMobile ? 16 : 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: isMobile ? 1 : 2),
+            Flexible(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: isMobile ? 9 : 11,
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -227,14 +273,14 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     );
   }
 
-  Widget _buildRecentWork() {
+  Widget _buildRecentWork(bool isMobile) {
     if (_myWork == null || _myWork!.isEmpty) {
-      return const Card(
+      return Card(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(isMobile ? 12.0 : 16.0),
           child: Text(
             'No work assigned yet.',
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(color: Colors.grey, fontSize: isMobile ? 12 : 14),
           ),
         ),
       );
@@ -243,11 +289,13 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     final recentWork = _myWork!.take(3).toList();
 
     return Column(
-      children: recentWork.map((work) => _buildWorkCard(work)).toList(),
+      children: recentWork
+          .map((work) => _buildWorkCard(work, isMobile))
+          .toList(),
     );
   }
 
-  Widget _buildWorkCard(WorkModel work) {
+  Widget _buildWorkCard(WorkModel work, bool isMobile) {
     Color statusColor;
     switch (work.status) {
       case WorkStatus.pending:
@@ -268,41 +316,59 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: EdgeInsets.only(bottom: isMobile ? 6 : 8),
       child: ListTile(
-        leading: Icon(Icons.work, color: statusColor),
+        contentPadding: EdgeInsets.all(isMobile ? 8 : 16),
+        leading: Icon(Icons.work, color: statusColor, size: isMobile ? 20 : 24),
         title: Text(
           work.title,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: isMobile ? 14 : 16,
+          ),
+          maxLines: isMobile ? 1 : 2,
+          overflow: TextOverflow.ellipsis,
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(work.description ?? ''),
-            const SizedBox(height: 4),
+            if (work.description != null && work.description!.isNotEmpty)
+              Text(
+                work.description!,
+                style: TextStyle(fontSize: isMobile ? 12 : 14),
+                maxLines: isMobile ? 2 : 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            SizedBox(height: isMobile ? 2 : 4),
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    work.statusDisplayName,
-                    style: TextStyle(
-                      color: statusColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 6 : 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      work.statusDisplayName,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: isMobile ? 10 : 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: isMobile ? 4 : 8),
                 if (work.isOverdue)
-                  const Icon(Icons.warning, color: Colors.red, size: 16),
+                  Icon(
+                    Icons.warning,
+                    color: Colors.red,
+                    size: isMobile ? 14 : 16,
+                  ),
               ],
             ),
           ],
@@ -312,91 +378,45 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                 icon: Icon(
                   work.canStart ? Icons.play_arrow : Icons.check,
                   color: Colors.green,
+                  size: isMobile ? 20 : 24,
                 ),
-                onPressed: () => _handleWorkAction(work),
+                onPressed: () => Navigator.pushNamed(context, '/my-work'),
               )
             : null,
-        onTap: () => _showWorkDetails(work),
+        onTap: () => Navigator.pushNamed(context, '/my-work'),
       ),
     );
   }
 
-  void _handleWorkAction(WorkModel work) async {
-    try {
-      if (work.canStart) {
-        await _workService.startWork(work.id);
-        _showMessage('Work started successfully');
-      } else if (work.canComplete) {
-        await _workService.completeWork(work.id, null);
-        _showMessage('Work completed successfully');
-      }
-      _loadDashboard();
-    } catch (e) {
-      _showMessage('Error: $e');
-    }
-  }
-
-  void _showWorkDetails(WorkModel work) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(work.title),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Description: ${work.description ?? 'No description'}'),
-            const SizedBox(height: 8),
-            Text('Status: ${work.statusDisplayName}'),
-            Text('Priority: ${work.priorityDisplayName}'),
-            if (work.dueDate != null)
-              Text('Due: ${work.dueDate!.toLocal().toString().split(' ')[0]}'),
-            if (work.estimatedHours != null)
-              Text('Estimated Hours: ${work.estimatedHours}'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActions() {
+  Widget _buildQuickActions(bool isMobile) {
     return GridView.count(
-      crossAxisCount: 2,
+      crossAxisCount: isMobile ? 2 : 3,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.2,
+      crossAxisSpacing: isMobile ? 8 : 12,
+      mainAxisSpacing: isMobile ? 8 : 12,
+      childAspectRatio: isMobile ? 1.1 : 1.2,
       children: [
         _buildActionCard(
           'My Work',
           Icons.work_outline,
           Colors.blue,
           () => Navigator.pushNamed(context, '/my-work'),
-        ),
-        _buildActionCard(
-          'Time Tracking',
-          Icons.timer,
-          Colors.green,
-          () => Navigator.pushNamed(context, '/time-tracking'),
+          isMobile,
         ),
         _buildActionCard(
           'Profile',
           Icons.person,
           Colors.orange,
           () => Navigator.pushNamed(context, '/profile'),
+          isMobile,
         ),
         _buildActionCard(
           'Help',
           Icons.help,
           Colors.purple,
           () => Navigator.pushNamed(context, '/help'),
+          isMobile,
         ),
       ],
     );
@@ -407,25 +427,33 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     IconData icon,
     Color color,
     VoidCallback onTap,
+    bool isMobile,
   ) {
     return Card(
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(isMobile ? 6.0 : 12.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 32, color: color),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+              Flexible(
+                child: Icon(icon, size: isMobile ? 20 : 28, color: color),
+              ),
+              SizedBox(height: isMobile ? 2 : 4),
+              Flexible(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: isMobile ? 10 : 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
               ),
             ],
           ),

@@ -44,7 +44,12 @@ class DirectorSidebar extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.work),
-            title: const Text('All Work'),
+            title: const Text('Manage Work'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.manageWork),
+          ),
+          ListTile(
+            leading: const Icon(Icons.verified),
+            title: const Text('Verify Work'),
             onTap: () => Navigator.pushNamed(context, AppRoutes.verifyWork),
           ),
           ListTile(

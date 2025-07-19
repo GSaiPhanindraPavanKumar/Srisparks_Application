@@ -37,11 +37,6 @@ class EmployeeSidebar extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, '/my-work'),
           ),
           ListTile(
-            leading: const Icon(Icons.timer),
-            title: const Text('Time Tracking'),
-            onTap: () => Navigator.pushNamed(context, '/time-tracking'),
-          ),
-          ListTile(
             leading: const Icon(Icons.person),
             title: const Text('Profile'),
             onTap: () => Navigator.pushNamed(context, '/profile'),

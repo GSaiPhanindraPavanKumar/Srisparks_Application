@@ -65,6 +65,8 @@ CREATE TABLE customers (
   tax_id TEXT,
   is_active BOOLEAN DEFAULT TRUE,
   office_id UUID NOT NULL REFERENCES offices(id),
+  latitude DECIMAL(10,8),
+  longitude DECIMAL(11,8),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   metadata JSONB
@@ -93,6 +95,11 @@ CREATE TABLE work (
   estimated_hours DECIMAL(5,2),
   actual_hours DECIMAL(5,2),
   office_id UUID NOT NULL REFERENCES offices(id),
+  start_location_latitude DECIMAL(10,8),
+  start_location_longitude DECIMAL(11,8),
+  complete_location_latitude DECIMAL(10,8),
+  complete_location_longitude DECIMAL(11,8),
+  completion_response TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   metadata JSONB
@@ -398,9 +405,13 @@ INSERT INTO users (id, email, full_name, role, office_id) VALUES
 INSERT INTO users (id, email, full_name, role, office_id, reporting_to_id) VALUES
 ('550e8400-e29b-41d4-a716-446655440002', 'manager@srisparks.com', 'Jane Manager', 'manager', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440001');
 
--- Insert sample customer
-INSERT INTO customers (id, name, email, company_name, office_id) VALUES
-('550e8400-e29b-41d4-a716-446655440003', 'ABC Corp', 'contact@abccorp.com', 'ABC Corporation', '550e8400-e29b-41d4-a716-446655440000');
+-- Insert sample customer with GPS coordinates
+INSERT INTO customers (id, name, email, company_name, office_id, latitude, longitude) VALUES
+('550e8400-e29b-41d4-a716-446655440003', 'ABC Corp', 'contact@abccorp.com', 'ABC Corporation', '550e8400-e29b-41d4-a716-446655440000', 16.746794, 81.7022911);
+
+-- Insert another sample customer with different location
+INSERT INTO customers (id, name, email, company_name, office_id, latitude, longitude) VALUES
+('550e8400-e29b-41d4-a716-446655440004', 'XYZ Company', 'info@xyzcompany.com', 'XYZ Private Limited', '550e8400-e29b-41d4-a716-446655440000', 16.750000, 81.705000);
 ```
 
 This schema provides a solid foundation for the Srisparks Workforce Management App with proper security, relationships, and performance optimizations.

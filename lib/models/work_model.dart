@@ -20,6 +20,11 @@ class WorkModel {
   final double? estimatedHours;
   final double? actualHours;
   final String officeId;
+  final double? startLocationLatitude;
+  final double? startLocationLongitude;
+  final double? completeLocationLatitude;
+  final double? completeLocationLongitude;
+  final String? completionResponse;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final Map<String, dynamic>? metadata;
@@ -42,6 +47,11 @@ class WorkModel {
     this.estimatedHours,
     this.actualHours,
     required this.officeId,
+    this.startLocationLatitude,
+    this.startLocationLongitude,
+    this.completeLocationLatitude,
+    this.completeLocationLongitude,
+    this.completionResponse,
     required this.createdAt,
     this.updatedAt,
     this.metadata,
@@ -80,6 +90,11 @@ class WorkModel {
       estimatedHours: json['estimated_hours']?.toDouble(),
       actualHours: json['actual_hours']?.toDouble(),
       officeId: json['office_id'],
+      startLocationLatitude: json['start_location_latitude']?.toDouble(),
+      startLocationLongitude: json['start_location_longitude']?.toDouble(),
+      completeLocationLatitude: json['complete_location_latitude']?.toDouble(),
+      completeLocationLongitude: json['complete_location_longitude']?.toDouble(),
+      completionResponse: json['completion_response'],
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'])
@@ -107,6 +122,11 @@ class WorkModel {
       'estimated_hours': estimatedHours,
       'actual_hours': actualHours,
       'office_id': officeId,
+      'start_location_latitude': startLocationLatitude,
+      'start_location_longitude': startLocationLongitude,
+      'complete_location_latitude': completeLocationLatitude,
+      'complete_location_longitude': completeLocationLongitude,
+      'completion_response': completionResponse,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'metadata': metadata,

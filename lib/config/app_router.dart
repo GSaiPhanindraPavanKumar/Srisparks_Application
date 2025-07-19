@@ -3,7 +3,7 @@ import '../screens/director/director_dashboard.dart';
 import '../screens/manager/manager_dashboard.dart';
 import '../screens/lead/lead_dashboard.dart';
 import '../screens/employee/employee_dashboard.dart';
-import '../screens/shared/assign_work_screen.dart';
+import '../screens/manager/assign_work_screen.dart';
 import '../screens/shared/verify_work_screen.dart';
 import '../screens/shared/customers_screen.dart';
 import '../screens/shared/reports_screen.dart';
@@ -14,13 +14,15 @@ import '../screens/director/manage_offices_screen.dart';
 import '../screens/shared/profile_screen.dart';
 import '../screens/shared/settings_screen.dart';
 import '../screens/shared/time_tracking_screen.dart';
+import '../screens/shared/my_work_screen.dart';
+import '../screens/manager/manage_work_screen.dart';
 import '../screens/shared/help_screen.dart';
 import '../auth/auth_screen.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 
 class AppRoutes {
-  static const String auth = '/auth';
+  static const String auth = '/';
   static const String director = '/director';
   static const String manager = '/manager';
   static const String lead = '/lead';
@@ -36,13 +38,14 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String settings = '/settings';
   static const String timeTracking = '/time-tracking';
+  static const String myWork = '/my-work';
+  static const String manageWork = '/manage-work';
   static const String help = '/help';
 }
 
 class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
-      case '/':
       case AppRoutes.auth:
         return MaterialPageRoute(
           builder: (_) => const AuthScreen(),
@@ -161,6 +164,21 @@ class AppRouter {
       case AppRoutes.timeTracking:
         return MaterialPageRoute(
           builder: (_) => const RouteGuard(child: TimeTrackingScreen()),
+          settings: settings,
+        );
+
+      case AppRoutes.myWork:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(child: MyWorkScreen()),
+          settings: settings,
+        );
+
+      case AppRoutes.manageWork:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: ManageWorkScreen(),
+            requiresManagementRole: true,
+          ),
           settings: settings,
         );
 

@@ -16,6 +16,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Map<String, dynamic>? _workStats;
   bool _isLoading = true;
+  UserModel? _currentUser;
+  String? _selectedOfficeId;
+  List<String> _availableOffices = [];
 
   @override
   void initState() {
@@ -29,12 +32,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
     });
 
     try {
-      final currentUser = await _authService.getCurrentUserProfile();
-      if (currentUser != null) {
-        // Load work statistics based on user role
+      _currentUser = await _authService.getCurrentUserProfile();
+      if (_currentUser != null) {
+        // Load available offices for directors
+        if (_currentUser!.role == UserRole.director) {
+          final allWork = await _workService.getAllWork();
+          _availableOffices = allWork.map((w) => w.officeId).toSet().toList();
+        }
+
+        // Load work statistics based on user role and selected office
         String? officeId;
-        if (currentUser.role != UserRole.director) {
-          officeId = currentUser.officeId;
+        if (_currentUser!.role == UserRole.director) {
+          officeId = _selectedOfficeId; // Can be null for "All offices"
+        } else {
+          officeId = _currentUser!.officeId;
         }
 
         _workStats = await _workService.getWorkStatistics(officeId);
@@ -77,6 +88,27 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
+
+                  // Office filter for directors
+                  if (_currentUser?.role == UserRole.director &&
+                      _availableOffices.isNotEmpty) ...[
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildOfficeFilterChip('All Offices', null),
+                          ..._availableOffices.map(
+                            (officeId) => _buildOfficeFilterChip(
+                              'Office $officeId',
+                              officeId,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   _buildWorkStatsGrid(),
                   const SizedBox(height: 32),
 
@@ -207,6 +239,25 @@ class _ReportsScreenState extends State<ReportsScreen> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildOfficeFilterChip(String label, String? officeId) {
+    final isSelected = _selectedOfficeId == officeId;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (selected) {
+          setState(() {
+            _selectedOfficeId = selected ? officeId : null;
+          });
+          _loadReports();
+        },
+        backgroundColor: Colors.grey[200],
+        selectedColor: Colors.deepPurple.withOpacity(0.2),
+      ),
     );
   }
 }

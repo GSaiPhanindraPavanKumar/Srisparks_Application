@@ -1,9 +1,14 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/work_model.dart';
 import '../models/activity_log_model.dart';
+import '../models/customer_model.dart';
+import '../services/location_service.dart';
+import '../services/customer_service.dart';
 
 class WorkService {
   final SupabaseClient _supabase = Supabase.instance.client;
+  final LocationService _locationService = LocationService();
+  final CustomerService _customerService = CustomerService();
 
   // Get work assigned to current user
   Future<List<WorkModel>> getMyWork() async {
@@ -14,6 +19,16 @@ class WorkService {
         .from('work')
         .select()
         .eq('assigned_to_id', user.id)
+        .order('created_at', ascending: false);
+
+    return (response as List).map((work) => WorkModel.fromJson(work)).toList();
+  }
+
+  // Get all work (for directors)
+  Future<List<WorkModel>> getAllWork() async {
+    final response = await _supabase
+        .from('work')
+        .select()
         .order('created_at', ascending: false);
 
     return (response as List).map((work) => WorkModel.fromJson(work)).toList();
@@ -42,6 +57,17 @@ class WorkService {
         .order('created_at', ascending: false);
 
     return (response as List).map((work) => WorkModel.fromJson(work)).toList();
+  }
+
+  // Get work by ID
+  Future<WorkModel?> getWorkById(String workId) async {
+    final response = await _supabase
+        .from('work')
+        .select()
+        .eq('id', workId)
+        .single();
+
+    return response != null ? WorkModel.fromJson(response) : null;
   }
 
   // Get work by status
@@ -142,11 +168,64 @@ class WorkService {
     return WorkModel.fromJson(response);
   }
 
-  // Start work
+  // Start work with location verification
   Future<WorkModel> startWork(String workId) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+
+    // Check if any other work is in progress
+    final myWork = await getMyWork();
+    final hasActiveWork = myWork.any(
+      (w) => w.status == WorkStatus.in_progress && w.id != workId,
+    );
+
+    if (hasActiveWork) {
+      throw Exception(
+        'Please complete your current active work before starting a new one',
+      );
+    }
+
+    // Get work details to check customer location
+    final workResponse = await _supabase
+        .from('work')
+        .select('*, customers(latitude, longitude, name)')
+        .eq('id', workId)
+        .single();
+
+    final customerData = workResponse['customers'];
+    if (customerData == null) {
+      throw Exception('Customer information not found');
+    }
+
+    final customerLat = customerData['latitude'];
+    final customerLng = customerData['longitude'];
+    final customerName = customerData['name'];
+
+    // Verify location if customer has GPS coordinates
+    double? startLat;
+    double? startLng;
+
+    if (customerLat != null && customerLng != null) {
+      final locationResult = await _locationService.verifyLocationProximity(
+        targetLatitude: customerLat.toDouble(),
+        targetLongitude: customerLng.toDouble(),
+      );
+
+      if (!locationResult.isValid) {
+        throw Exception(
+          locationResult.errorMessage ?? 'Location verification failed',
+        );
+      }
+
+      startLat = locationResult.currentLatitude;
+      startLng = locationResult.currentLongitude;
+    }
+
     final updates = {
       'status': WorkStatus.in_progress.name,
       'start_date': DateTime.now().toIso8601String(),
+      'start_location_latitude': startLat,
+      'start_location_longitude': startLng,
     };
 
     final response = await _supabase
@@ -161,7 +240,8 @@ class WorkService {
     // Log the activity
     await _logActivity(
       activityType: ActivityType.work_started,
-      description: 'Work started: ${work.title}',
+      description:
+          'Work started: ${work.title}${customerLat != null ? ' (Location verified at $customerName)' : ''}',
       entityId: workId,
       entityType: 'work',
     );
@@ -169,12 +249,56 @@ class WorkService {
     return work;
   }
 
-  // Complete work
-  Future<WorkModel> completeWork(String workId, double? actualHours) async {
+  // Complete work with location verification and response
+  Future<WorkModel> completeWork(
+    String workId,
+    String completionResponse,
+  ) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+
+    // Get work details to check customer location
+    final workResponse = await _supabase
+        .from('work')
+        .select('*, customers(latitude, longitude, name)')
+        .eq('id', workId)
+        .single();
+
+    final customerData = workResponse['customers'];
+    if (customerData == null) {
+      throw Exception('Customer information not found');
+    }
+
+    final customerLat = customerData['latitude'];
+    final customerLng = customerData['longitude'];
+    final customerName = customerData['name'];
+
+    // Verify location if customer has GPS coordinates
+    double? completeLat;
+    double? completeLng;
+
+    if (customerLat != null && customerLng != null) {
+      final locationResult = await _locationService.verifyLocationProximity(
+        targetLatitude: customerLat.toDouble(),
+        targetLongitude: customerLng.toDouble(),
+      );
+
+      if (!locationResult.isValid) {
+        throw Exception(
+          locationResult.errorMessage ?? 'Location verification failed',
+        );
+      }
+
+      completeLat = locationResult.currentLatitude;
+      completeLng = locationResult.currentLongitude;
+    }
+
     final updates = {
       'status': WorkStatus.completed.name,
       'completed_date': DateTime.now().toIso8601String(),
-      'actual_hours': actualHours,
+      'complete_location_latitude': completeLat,
+      'complete_location_longitude': completeLng,
+      'completion_response': completionResponse,
     };
 
     final response = await _supabase
@@ -189,12 +313,61 @@ class WorkService {
     // Log the activity
     await _logActivity(
       activityType: ActivityType.work_completed,
-      description: 'Work completed: ${work.title}',
+      description:
+          'Work completed: ${work.title}${customerLat != null ? ' (Location verified at $customerName)' : ''}',
       entityId: workId,
       entityType: 'work',
     );
 
     return work;
+  }
+
+  // Check if user can start work based on location
+  Future<LocationVerificationResult> checkStartWorkLocation(
+    String workId,
+  ) async {
+    try {
+      // Get work details to check customer location
+      final workResponse = await _supabase
+          .from('work')
+          .select('*, customers(latitude, longitude, name)')
+          .eq('id', workId)
+          .single();
+
+      final customerData = workResponse['customers'];
+      if (customerData == null) {
+        return LocationVerificationResult(
+          isValid: false,
+          errorMessage: 'Customer information not found',
+        );
+      }
+
+      final customerLat = customerData['latitude'];
+      final customerLng = customerData['longitude'];
+
+      // If customer has no GPS coordinates, allow work to start
+      if (customerLat == null || customerLng == null) {
+        return LocationVerificationResult(isValid: true, errorMessage: null);
+      }
+
+      // Verify location
+      return await _locationService.verifyLocationProximity(
+        targetLatitude: customerLat.toDouble(),
+        targetLongitude: customerLng.toDouble(),
+      );
+    } catch (e) {
+      return LocationVerificationResult(
+        isValid: false,
+        errorMessage: 'Error checking location: $e',
+      );
+    }
+  }
+
+  // Check if user can complete work based on location
+  Future<LocationVerificationResult> checkCompleteWorkLocation(
+    String workId,
+  ) async {
+    return await checkStartWorkLocation(workId); // Same logic applies
   }
 
   // Verify work

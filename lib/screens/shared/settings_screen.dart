@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../config/app_router.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -45,7 +46,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       try {
         await _authService.logout();
         if (mounted) {
-          Navigator.pushReplacementNamed(context, '/auth');
+          Navigator.pushReplacementNamed(context, AppRoutes.auth);
         }
       } catch (e) {
         _showMessage('Error logging out: $e');

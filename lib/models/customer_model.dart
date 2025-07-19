@@ -12,6 +12,8 @@ class CustomerModel {
   final String? taxId;
   final bool isActive;
   final String officeId;
+  final double? latitude;
+  final double? longitude;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final Map<String, dynamic>? metadata;
@@ -30,6 +32,8 @@ class CustomerModel {
     this.taxId,
     required this.isActive,
     required this.officeId,
+    this.latitude,
+    this.longitude,
     required this.createdAt,
     this.updatedAt,
     this.metadata,
@@ -50,6 +54,8 @@ class CustomerModel {
       taxId: json['tax_id'],
       isActive: json['is_active'] ?? true,
       officeId: json['office_id'],
+      latitude: json['latitude']?.toDouble(),
+      longitude: json['longitude']?.toDouble(),
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'])
@@ -73,6 +79,8 @@ class CustomerModel {
       'tax_id': taxId,
       'is_active': isActive,
       'office_id': officeId,
+      'latitude': latitude,
+      'longitude': longitude,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'metadata': metadata,

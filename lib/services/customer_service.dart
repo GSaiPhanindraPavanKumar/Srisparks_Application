@@ -60,9 +60,11 @@ class CustomerService {
     String? state,
     String? zipCode,
     String? country,
-    String? companyName,
-    String? taxId,
+    double? latitude,
+    double? longitude,
+    int? kw,
     required String officeId,
+    required String addedById,
   }) async {
     final customerData = {
       'name': name,
@@ -73,10 +75,12 @@ class CustomerService {
       'state': state,
       'zip_code': zipCode,
       'country': country,
-      'company_name': companyName,
-      'tax_id': taxId,
+      'latitude': latitude,
+      'longitude': longitude,
+      'kw': kw,
       'is_active': true,
       'office_id': officeId,
+      'added_by_id': addedById,
       'created_at': DateTime.now().toIso8601String(),
     };
 

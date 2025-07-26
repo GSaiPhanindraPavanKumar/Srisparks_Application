@@ -16,7 +16,7 @@ CREATE TABLE users (
   role TEXT NOT NULL CHECK (role IN ('director', 'manager', 'employee')),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'pending_approval')),
   is_lead BOOLEAN DEFAULT FALSE,
-  office_id UUID REFERENCES offices(id),
+  office_id UUID REFERENCES offices(id), -- NULL for directors (indicates access to all offices)
   reporting_to_id UUID REFERENCES users(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -25,6 +25,11 @@ CREATE TABLE users (
 ```
 
 **Note:** The `is_lead` field is used to designate employees as leads. Only employees can be leads (directors and managers cannot have the lead flag).
+
+**Office Access Rules:**
+- **Directors**: `office_id` should be NULL (indicates access to all offices)
+- **Managers**: `office_id` must reference a specific office (access to that office only)
+- **Employees**: `office_id` must reference a specific office (access to that office only)
 
 ### 2. Offices Table
 Stores office/branch information.
@@ -43,6 +48,8 @@ CREATE TABLE offices (
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
+  latitude DECIMAL(10,8),
+  longitude DECIMAL(11,8),
   metadata JSONB
 );
 ```
@@ -61,10 +68,10 @@ CREATE TABLE customers (
   state TEXT,
   zip_code TEXT,
   country TEXT,
-  company_name TEXT,
-  tax_id TEXT,
+  kw INTEGER,
   is_active BOOLEAN DEFAULT TRUE,
   office_id UUID NOT NULL REFERENCES offices(id),
+  added_by_id UUID NOT NULL REFERENCES users(id),
   latitude DECIMAL(10,8),
   longitude DECIMAL(11,8),
   created_at TIMESTAMPTZ DEFAULT NOW(),

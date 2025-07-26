@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/work_model.dart';
 import '../../services/work_service.dart';
+import '../../widgets/loading_widget.dart';
 import 'work_detail_screen.dart';
 
 class MyWorkScreen extends StatefulWidget {
@@ -88,85 +89,88 @@ class _MyWorkScreenState extends State<MyWorkScreen> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadMyWork),
         ],
       ),
-      body: Column(
-        children: [
-          // Search and filter section
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                TextField(
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                    });
-                    _filterWork();
-                  },
-                  decoration: const InputDecoration(
-                    labelText: 'Search work...',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
+      body: PullToRefreshWrapper(
+        onRefresh: _loadMyWork,
+        child: Column(
+          children: [
+            // Search and filter section
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  TextField(
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                      _filterWork();
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Search work...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      FilterChip(
-                        label: const Text('All'),
-                        selected: _selectedStatus == null,
-                        onSelected: (selected) {
-                          setState(() {
-                            _selectedStatus = null;
-                          });
-                          _filterWork();
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      ...WorkStatus.values.map(
-                        (status) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Text(status.name),
-                            selected: _selectedStatus == status,
-                            onSelected: (selected) {
-                              setState(() {
-                                _selectedStatus = selected ? status : null;
-                              });
-                              _filterWork();
-                            },
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        FilterChip(
+                          label: const Text('All'),
+                          selected: _selectedStatus == null,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedStatus = null;
+                            });
+                            _filterWork();
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ...WorkStatus.values.map(
+                          (status) => Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: FilterChip(
+                              label: Text(status.name),
+                              selected: _selectedStatus == status,
+                              onSelected: (selected) {
+                                setState(() {
+                                  _selectedStatus = selected ? status : null;
+                                });
+                                _filterWork();
+                              },
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Work list
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredWork.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No work found',
-                      style: TextStyle(color: Colors.grey),
+                      ],
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _filteredWork.length,
-                    itemBuilder: (context, index) {
-                      final work = _filteredWork[index];
-                      return _buildWorkCard(work);
-                    },
                   ),
-          ),
-        ],
+                ],
+              ),
+            ),
+
+            // Work list
+            Expanded(
+              child: _isLoading
+                  ? const LoadingWidget(message: 'Loading work...')
+                  : _filteredWork.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No work found',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _filteredWork.length,
+                      itemBuilder: (context, index) {
+                        final work = _filteredWork[index];
+                        return _buildWorkCard(work);
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

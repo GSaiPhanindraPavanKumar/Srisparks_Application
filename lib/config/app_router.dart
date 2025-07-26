@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../screens/director/director_dashboard.dart';
+import '../screens/director/director_dashboard.dart' as director_screen;
 import '../screens/manager/manager_dashboard.dart';
 import '../screens/lead/lead_dashboard.dart';
 import '../screens/employee/employee_dashboard.dart';
@@ -24,6 +24,9 @@ import '../models/user_model.dart';
 class AppRoutes {
   static const String auth = '/';
   static const String director = '/director';
+  static const String directorOffices = '/director/offices';
+  static const String directorUsers = '/director/users';
+  static const String directorReports = '/director/reports';
   static const String manager = '/manager';
   static const String lead = '/lead';
   static const String employee = '/employee';
@@ -54,8 +57,35 @@ class AppRouter {
 
       case AppRoutes.director:
         return MaterialPageRoute(
+          builder: (_) => RouteGuard(
+            child: director_screen.DirectorDashboard(),
+            requiredRole: UserRole.director,
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.directorOffices:
+        return MaterialPageRoute(
           builder: (_) => const RouteGuard(
-            child: DirectorDashboard(),
+            child: ManageOfficesScreen(),
+            requiredRole: UserRole.director,
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.directorUsers:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: ManageUsersScreen(),
+            requiredRole: UserRole.director,
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.directorReports:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: ReportsScreen(),
             requiredRole: UserRole.director,
           ),
           settings: settings,

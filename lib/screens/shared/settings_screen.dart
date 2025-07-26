@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../config/app_router.dart';
+import '../../widgets/loading_widget.dart';
+import '../../widgets/ui_components.dart';
+import '../../theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,6 +15,10 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final AuthService _authService = AuthService();
+
+  // User data
+  UserModel? _currentUser;
+  bool _isLoading = true;
 
   // Settings values
   bool _darkMode = false;
@@ -28,11 +36,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
-    // Load settings from local storage or API
-    // For now, using default values
     setState(() {
-      // Settings loaded
+      _isLoading = true;
     });
+    
+    try {
+      // Load current user
+      _currentUser = await _authService.getCurrentUserProfile();
+      
+      // Load settings from local storage or API
+      // For now, using default values
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      _showMessage('Error loading user profile: $e');
+    }
   }
 
   Future<void> _saveSettings() async {
@@ -44,9 +66,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final shouldLogout = await _showLogoutDialog();
     if (shouldLogout) {
       try {
-        await _authService.logout();
+        await _authService.signOut();
         if (mounted) {
-          Navigator.pushReplacementNamed(context, AppRoutes.auth);
+          Navigator.pushNamedAndRemoveUntil(
+            context, 
+            AppRoutes.auth, 
+            (route) => false,
+          );
         }
       } catch (e) {
         _showMessage('Error logging out: $e');
@@ -88,29 +114,161 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(icon: const Icon(Icons.save), onPressed: _saveSettings),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 120,
+            floating: false,
+            pinned: true,
+            flexibleSpace: FlexibleSpaceBar(
+              title: const Text(
+                'Settings',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                ),
+              ),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.save, color: Colors.white),
+                onPressed: _saveSettings,
+              ),
+            ],
+          ),
+          SliverToBoxAdapter(
+            child: _isLoading
+                ? const SizedBox(
+                    height: 400,
+                    child: LoadingWidget(
+                      message: 'Loading settings...',
+                      color: AppTheme.primary,
+                    ),
+                  )
+                : PullToRefreshWrapper(
+                    onRefresh: _loadSettings,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppTheme.spacing16),
+                      child: Column(
+                        children: [
+                          _buildUserSection(),
+                          const SizedBox(height: AppTheme.spacing20),
+                          _buildAppearanceSection(),
+                          const SizedBox(height: AppTheme.spacing20),
+                          _buildNotificationSection(),
+                          const SizedBox(height: AppTheme.spacing20),
+                          _buildLanguageSection(),
+                          const SizedBox(height: AppTheme.spacing20),
+                          _buildAccountSection(),
+                          const SizedBox(height: AppTheme.spacing20),
+                          _buildAboutSection(),
+                          const SizedBox(height: AppTheme.spacing32),
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildAppearanceSection(),
-            const SizedBox(height: 20),
-            _buildNotificationSection(),
-            const SizedBox(height: 20),
-            _buildLanguageSection(),
-            const SizedBox(height: 20),
-            _buildAccountSection(),
-            const SizedBox(height: 20),
-            _buildAboutSection(),
-          ],
-        ),
+    );
+  }
+
+  Widget _buildUserSection() {
+    return BeautifulCard(
+      hasGradient: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppTheme.spacing8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+                child: const Icon(
+                  Icons.person,
+                  color: AppTheme.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: AppTheme.spacing12),
+              Text(
+                'User Profile',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spacing20),
+          Container(
+            padding: const EdgeInsets.all(AppTheme.spacing16),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceVariant,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              border: Border.all(
+                color: AppTheme.primary.withOpacity(0.1),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                UserAvatar(
+                  name: _currentUser?.fullName,
+                  radius: 30,
+                  backgroundColor: AppTheme.primary,
+                ),
+                const SizedBox(width: AppTheme.spacing16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _currentUser?.fullName ?? 'User',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.spacing4),
+                      Text(
+                        _currentUser?.email ?? 'user@example.com',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.spacing8),
+                      RoleBadge(
+                        role: _currentUser?.roleDisplayName ?? 'Unknown',
+                        fontSize: 11,
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.edit, color: AppTheme.primary),
+                    onPressed: () {
+                      Navigator.pushNamed(context, AppRoutes.profile);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -250,6 +408,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _showMessage('Account deletion feature coming soon');
           },
         ),
+        _buildActionSetting(
+          title: 'Logout',
+          subtitle: 'Sign out of your account',
+          icon: Icons.logout,
+          iconColor: Colors.orange,
+          onTap: _logout,
+        ),
       ],
     );
   }
@@ -290,30 +455,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required IconData icon,
     required List<Widget> children,
   }) {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: Colors.deepPurple),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+    return BeautifulCard(
+      hasGradient: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppTheme.spacing8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ...children,
-          ],
-        ),
+                child: Icon(
+                  icon,
+                  color: AppTheme.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: AppTheme.spacing12),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spacing16),
+          ...children,
+        ],
       ),
     );
   }
@@ -324,13 +497,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required bool value,
     required Function(bool) onChanged,
   }) {
-    return ListTile(
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: Switch(
-        value: value,
-        onChanged: onChanged,
-        activeColor: Colors.deepPurple,
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppTheme.spacing8),
+      padding: const EdgeInsets.all(AppTheme.spacing16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        border: Border.all(
+          color: value ? AppTheme.primary.withOpacity(0.3) : Colors.grey.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.spacing4),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: AppTheme.primary,
+            activeTrackColor: AppTheme.primary.withOpacity(0.3),
+          ),
+        ],
       ),
     );
   }
@@ -341,18 +548,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required List<String> items,
     required Function(String) onChanged,
   }) {
-    return ListTile(
-      title: Text(title),
-      trailing: DropdownButton<String>(
-        value: value,
-        items: items.map((item) {
-          return DropdownMenuItem(value: item, child: Text(item));
-        }).toList(),
-        onChanged: (newValue) {
-          if (newValue != null) {
-            onChanged(newValue);
-          }
-        },
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppTheme.spacing8),
+      padding: const EdgeInsets.all(AppTheme.spacing16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spacing12,
+              vertical: AppTheme.spacing8,
+            ),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+              border: Border.all(
+                color: AppTheme.primary.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: DropdownButton<String>(
+              value: value,
+              underline: const SizedBox(),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+              items: items.map((item) {
+                return DropdownMenuItem(
+                  value: item,
+                  child: Text(item),
+                );
+              }).toList(),
+              onChanged: (newValue) {
+                if (newValue != null) {
+                  onChanged(newValue);
+                }
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -364,12 +615,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required VoidCallback onTap,
     Color? iconColor,
   }) {
-    return ListTile(
-      leading: Icon(icon, color: iconColor ?? Colors.grey),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-      onTap: onTap,
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppTheme.spacing8),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.spacing16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppTheme.spacing8),
+                  decoration: BoxDecoration(
+                    color: (iconColor ?? AppTheme.textSecondary).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: iconColor ?? AppTheme.textSecondary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: AppTheme.spacing16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.spacing4),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: AppTheme.textTertiary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

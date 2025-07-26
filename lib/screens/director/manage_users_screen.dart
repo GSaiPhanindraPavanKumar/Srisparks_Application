@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
+import '../../models/office_model.dart';
 import '../../services/user_service.dart';
+import '../../services/office_service.dart';
+import '../../services/auth_service.dart';
 
 class ManageUsersScreen extends StatefulWidget {
   const ManageUsersScreen({super.key});
@@ -11,18 +14,47 @@ class ManageUsersScreen extends StatefulWidget {
 
 class _ManageUsersScreenState extends State<ManageUsersScreen> {
   final UserService _userService = UserService();
+  final OfficeService _officeService = OfficeService();
+  final AuthService _authService = AuthService();
 
   List<UserModel> _allUsers = [];
   List<UserModel> _filteredUsers = [];
+  List<OfficeModel> _allOffices = [];
   String _searchQuery = '';
   UserRole? _selectedRole;
   UserStatus? _selectedStatus;
+  String? _selectedOfficeId;
   bool _isLoading = true;
+  UserModel? _currentUser;
 
   @override
   void initState() {
     super.initState();
-    _loadUsers();
+    _initializeScreen();
+  }
+
+  Future<void> _initializeScreen() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      _currentUser = await _authService.getCurrentUserProfile();
+      if (_currentUser != null) {
+        // If director, load all offices for selection
+        if (_currentUser!.role == UserRole.director) {
+          _allOffices = await _officeService.getAllOffices();
+          _selectedOfficeId = 'all_offices'; // Default to all offices for directors
+        }
+        await _loadUsers();
+      }
+    } catch (e) {
+      _showMessage('Error initializing screen: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadUsers() async {
@@ -57,7 +89,12 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         final matchesStatus =
             _selectedStatus == null || user.status == _selectedStatus;
 
-        return matchesSearch && matchesRole && matchesStatus;
+        // Office filter for directors
+        final matchesOffice = _selectedOfficeId == null ||
+            _selectedOfficeId == 'all_offices' ||
+            user.officeId == _selectedOfficeId;
+
+        return matchesSearch && matchesRole && matchesStatus && matchesOffice;
       }).toList();
     });
   }
@@ -81,6 +118,87 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       ),
       body: Column(
         children: [
+          // Office selector for directors
+          if (_currentUser?.role == UserRole.director) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.purple.shade50,
+                border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.business, color: Colors.purple),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Office:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedOfficeId,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                      items: [
+                        // Add "All Offices" option for directors
+                        const DropdownMenuItem<String>(
+                          value: 'all_offices',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.business_center,
+                                size: 16,
+                                color: Colors.purple,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'All Offices',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Add individual offices
+                        ..._allOffices.map((office) {
+                          return DropdownMenuItem<String>(
+                            value: office.id,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.business, size: 16),
+                                const SizedBox(width: 8),
+                                Text(office.name),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                      onChanged: (String? newValue) {
+                        if (newValue != null && newValue != _selectedOfficeId) {
+                          setState(() {
+                            _selectedOfficeId = newValue;
+                          });
+                          _filterUsers();
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           // Search and filters
           Padding(
             padding: const EdgeInsets.all(16),
@@ -100,64 +218,60 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<UserRole>(
-                        value: _selectedRole,
-                        decoration: const InputDecoration(
-                          labelText: 'Filter by Role',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('All Roles'),
-                          ),
-                          ...UserRole.values.map((role) {
-                            return DropdownMenuItem(
-                              value: role,
-                              child: Text(role.name.toUpperCase()),
-                            );
-                          }),
-                        ],
-                        onChanged: (role) {
-                          setState(() {
-                            _selectedRole = role;
-                          });
-                          _filterUsers();
-                        },
-                      ),
+                // Role filter
+                DropdownButtonFormField<UserRole>(
+                  value: _selectedRole,
+                  decoration: const InputDecoration(
+                    labelText: 'Filter by Role',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: [
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('All Roles'),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: DropdownButtonFormField<UserStatus>(
-                        value: _selectedStatus,
-                        decoration: const InputDecoration(
-                          labelText: 'Filter by Status',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('All Status'),
-                          ),
-                          ...UserStatus.values.map((status) {
-                            return DropdownMenuItem(
-                              value: status,
-                              child: Text(status.name.toUpperCase()),
-                            );
-                          }),
-                        ],
-                        onChanged: (status) {
-                          setState(() {
-                            _selectedStatus = status;
-                          });
-                          _filterUsers();
-                        },
-                      ),
-                    ),
+                    ...UserRole.values.map((role) {
+                      return DropdownMenuItem(
+                        value: role,
+                        child: Text(role.name.toUpperCase()),
+                      );
+                    }),
                   ],
+                  onChanged: (role) {
+                    setState(() {
+                      _selectedRole = role;
+                    });
+                    _filterUsers();
+                  },
+                ),
+                const SizedBox(height: 8),
+                // Status filter
+                DropdownButtonFormField<UserStatus>(
+                  value: _selectedStatus,
+                  decoration: const InputDecoration(
+                    labelText: 'Filter by Status',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: [
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('All Status'),
+                    ),
+                    ...UserStatus.values.map((status) {
+                      return DropdownMenuItem(
+                        value: status,
+                        child: Text(status.name.toUpperCase()),
+                      );
+                    }),
+                  ],
+                  onChanged: (status) {
+                    setState(() {
+                      _selectedStatus = status;
+                    });
+                    _filterUsers();
+                  },
                 ),
               ],
             ),

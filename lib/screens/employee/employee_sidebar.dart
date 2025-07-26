@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
+import '../../config/app_router.dart';
 
 class EmployeeSidebar extends StatelessWidget {
   final UserModel? currentUser;
@@ -39,7 +40,7 @@ class EmployeeSidebar extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.person),
             title: const Text('Profile'),
-            onTap: () => Navigator.pushNamed(context, '/profile'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
           ),
           ListTile(
             leading: const Icon(Icons.help),
@@ -47,6 +48,11 @@ class EmployeeSidebar extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, '/help'),
           ),
           const Divider(),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Settings'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
+          ),
           ListTile(
             leading: const Icon(Icons.logout),
             title: const Text('Logout'),

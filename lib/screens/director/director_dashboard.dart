@@ -4,6 +4,7 @@ import '../../services/auth_service.dart';
 import '../../services/work_service.dart';
 import '../../services/office_service.dart';
 import '../../services/customer_service.dart';
+import '../../services/user_service.dart';
 import 'director_sidebar.dart';
 
 class DirectorDashboard extends StatefulWidget {
@@ -18,6 +19,7 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
   final WorkService _workService = WorkService();
   final OfficeService _officeService = OfficeService();
   final CustomerService _customerService = CustomerService();
+  final UserService _userService = UserService();
 
   UserModel? _currentUser;
   Map<String, dynamic>? _stats;
@@ -38,14 +40,25 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
       _currentUser = await _authService.getCurrentUserProfile();
 
       if (_currentUser != null) {
-        // Load statistics
-        final workStats = await _workService.getWorkStatistics(null);
-        final officeStats = await _officeService.getOfficeStatistics(
-          _currentUser!.officeId!,
-        );
-        final customerStats = await _customerService.getCustomerStatistics(
-          _currentUser!.officeId!,
-        );
+        // Load statistics - Directors get all-office statistics
+        Map<String, dynamic> workStats;
+        Map<String, dynamic> officeStats;
+        Map<String, dynamic> customerStats;
+
+        if (_currentUser!.role == UserRole.director) {
+          // Directors: Get statistics across all offices
+          workStats = await _getDirectorWorkStatistics();
+          officeStats = await _getDirectorOfficeStatistics();
+          customerStats = await _getDirectorCustomerStatistics();
+        } else {
+          // This shouldn't happen in director dashboard, but safety check
+          final officeId = _currentUser!.officeId ?? '';
+          workStats = await _workService.getWorkStatistics(officeId);
+          officeStats = await _officeService.getOfficeStatistics(officeId);
+          customerStats = await _customerService.getCustomerStatistics(
+            officeId,
+          );
+        }
 
         setState(() {
           _stats = {
@@ -68,6 +81,105 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  // Get combined statistics across all offices for directors
+  Future<Map<String, dynamic>> _getDirectorOfficeStatistics() async {
+    final allOffices = await _officeService.getAllOffices();
+
+    int totalActiveOffices = 0;
+
+    // Count active offices
+    for (final office in allOffices) {
+      if (office.isActive) {
+        totalActiveOffices++;
+      }
+    }
+
+    // Get total users count across ALL users (including directors with NULL office_id)
+    int totalUsers = 0;
+    try {
+      final allUsers = await _userService.getAllUsers();
+      // Count only active users
+      totalUsers = allUsers
+          .where((user) => user.status == UserStatus.active)
+          .length;
+    } catch (e) {
+      // If direct query fails, fall back to summing office statistics
+      for (final office in allOffices) {
+        if (office.isActive) {
+          try {
+            final officeStats = await _officeService.getOfficeStatistics(
+              office.id,
+            );
+            totalUsers += (officeStats['total_users'] as int? ?? 0);
+          } catch (e) {
+            // Continue if one office fails
+          }
+        }
+      }
+    }
+
+    return {
+      'totalOffices': allOffices.length,
+      'activeOffices': totalActiveOffices,
+      'total_users': totalUsers, // Now includes all users including directors
+    };
+  }
+
+  // Get combined work statistics across all offices for directors
+  Future<Map<String, dynamic>> _getDirectorWorkStatistics() async {
+    final allOffices = await _officeService.getAllOffices();
+
+    int totalPending = 0;
+    int totalInProgress = 0;
+    int totalCompleted = 0;
+
+    for (final office in allOffices) {
+      try {
+        final workStats = await _workService.getWorkStatistics(office.id);
+        totalPending += (workStats['pending'] as int? ?? 0);
+        totalInProgress += (workStats['in_progress'] as int? ?? 0);
+        totalCompleted += (workStats['completed'] as int? ?? 0);
+      } catch (e) {
+        // Continue if one office fails
+      }
+    }
+
+    return {
+      'pending': totalPending,
+      'in_progress': totalInProgress, // This matches the UI expectation
+      'completed': totalCompleted,
+      'total': totalPending + totalInProgress + totalCompleted,
+    };
+  }
+
+  // Get combined customer statistics across all offices for directors
+  Future<Map<String, dynamic>> _getDirectorCustomerStatistics() async {
+    final allOffices = await _officeService.getAllOffices();
+
+    int totalCustomers = 0;
+    int activeCustomers = 0;
+    int inactiveCustomers = 0;
+
+    for (final office in allOffices) {
+      try {
+        final customerStats = await _customerService.getCustomerStatistics(
+          office.id,
+        );
+        totalCustomers += (customerStats['total_customers'] as int? ?? 0);
+        activeCustomers += (customerStats['active_customers'] as int? ?? 0);
+        inactiveCustomers += (customerStats['inactive_customers'] as int? ?? 0);
+      } catch (e) {
+        // Continue if one office fails
+      }
+    }
+
+    return {
+      'total_customers': totalCustomers, // Fix: Match expected key name
+      'active': activeCustomers,
+      'inactive': inactiveCustomers,
+    };
   }
 
   Future<void> _handleLogout() async {

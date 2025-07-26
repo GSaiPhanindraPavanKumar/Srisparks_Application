@@ -69,6 +69,11 @@ class DirectorSidebar extends StatelessWidget {
           ),
           const Divider(),
           ListTile(
+            leading: const Icon(Icons.person),
+            title: const Text('Profile'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+          ),
+          ListTile(
             leading: const Icon(Icons.settings),
             title: const Text('Settings'),
             onTap: () => Navigator.pushNamed(context, AppRoutes.settings),

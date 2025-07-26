@@ -85,7 +85,10 @@ class WorkService {
   Future<List<WorkModel>> getWorkRequiringVerification() async {
     final response = await _supabase
         .from('work')
-        .select()
+        .select('''
+          *,
+          assigned_user:users!assigned_to_id(full_name, email)
+        ''')
         .eq('status', WorkStatus.completed.name)
         .order('completed_date', ascending: true);
 

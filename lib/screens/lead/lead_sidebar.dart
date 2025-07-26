@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
+import '../../config/app_router.dart';
 
 class LeadSidebar extends StatelessWidget {
   final UserModel? currentUser;
@@ -63,9 +64,14 @@ class LeadSidebar extends StatelessWidget {
           ),
           const Divider(),
           ListTile(
+            leading: const Icon(Icons.person),
+            title: const Text('Profile'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+          ),
+          ListTile(
             leading: const Icon(Icons.settings),
             title: const Text('Settings'),
-            onTap: () => Navigator.pushNamed(context, '/settings'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
           ),
           ListTile(
             leading: const Icon(Icons.logout),

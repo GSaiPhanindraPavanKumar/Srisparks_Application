@@ -6,6 +6,7 @@ import '../../models/user_model.dart';
 import '../../services/work_service.dart';
 import '../../services/customer_service.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/loading_widget.dart';
 
 class WorkDetailScreen extends StatefulWidget {
   final String workId;
@@ -312,15 +313,17 @@ class _WorkDetailScreenState extends State<WorkDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(_work?.title ?? 'Work Details'), elevation: 0),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _work == null
-          ? const Center(child: Text('Work not found'))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+      body: PullToRefreshWrapper(
+        onRefresh: _loadWorkDetails,
+        child: _isLoading
+            ? const LoadingWidget(message: 'Loading work details...')
+            : _work == null
+            ? const Center(child: Text('Work not found'))
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   // Work Information Card
                   Card(
                     child: Padding(
@@ -544,7 +547,8 @@ class _WorkDetailScreenState extends State<WorkDetailScreen> {
                     ),
                 ],
               ),
-            ),
+        ),
+      ),
     );
   }
 

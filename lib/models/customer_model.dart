@@ -8,10 +8,10 @@ class CustomerModel {
   final String? state;
   final String? zipCode;
   final String? country;
-  final String? companyName;
-  final String? taxId;
+  final int? kw;
   final bool isActive;
   final String officeId;
+  final String addedById;
   final double? latitude;
   final double? longitude;
   final DateTime createdAt;
@@ -28,10 +28,10 @@ class CustomerModel {
     this.state,
     this.zipCode,
     this.country,
-    this.companyName,
-    this.taxId,
+    this.kw,
     required this.isActive,
     required this.officeId,
+    required this.addedById,
     this.latitude,
     this.longitude,
     required this.createdAt,
@@ -50,10 +50,10 @@ class CustomerModel {
       state: json['state'],
       zipCode: json['zip_code'],
       country: json['country'],
-      companyName: json['company_name'],
-      taxId: json['tax_id'],
+      kw: json['kw'],
       isActive: json['is_active'] ?? true,
       officeId: json['office_id'],
+      addedById: json['added_by_id'],
       latitude: json['latitude']?.toDouble(),
       longitude: json['longitude']?.toDouble(),
       createdAt: DateTime.parse(json['created_at']),
@@ -75,10 +75,10 @@ class CustomerModel {
       'state': state,
       'zip_code': zipCode,
       'country': country,
-      'company_name': companyName,
-      'tax_id': taxId,
+      'kw': kw,
       'is_active': isActive,
       'office_id': officeId,
+      'added_by_id': addedById,
       'latitude': latitude,
       'longitude': longitude,
       'created_at': createdAt.toIso8601String(),
@@ -99,6 +99,6 @@ class CustomerModel {
   }
 
   String get displayName {
-    return companyName?.isNotEmpty == true ? companyName! : name;
+    return name;
   }
 }

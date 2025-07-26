@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
+import '../../models/office_model.dart';
 import '../../services/user_service.dart';
+import '../../services/office_service.dart';
+import '../../services/auth_service.dart';
 
 class ApproveUsersScreen extends StatefulWidget {
   const ApproveUsersScreen({super.key});
@@ -11,14 +14,44 @@ class ApproveUsersScreen extends StatefulWidget {
 
 class _ApproveUsersScreenState extends State<ApproveUsersScreen> {
   final UserService _userService = UserService();
+  final OfficeService _officeService = OfficeService();
+  final AuthService _authService = AuthService();
 
-  List<UserModel> _pendingUsers = [];
+  List<UserModel> _allPendingUsers = [];
+  List<UserModel> _filteredPendingUsers = [];
+  List<OfficeModel> _allOffices = [];
+  String? _selectedOfficeId;
   bool _isLoading = true;
+  UserModel? _currentUser;
 
   @override
   void initState() {
     super.initState();
-    _loadPendingUsers();
+    _initializeScreen();
+  }
+
+  Future<void> _initializeScreen() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      _currentUser = await _authService.getCurrentUserProfile();
+      if (_currentUser != null) {
+        // If director, load all offices for selection
+        if (_currentUser!.role == UserRole.director) {
+          _allOffices = await _officeService.getAllOffices();
+          _selectedOfficeId = 'all_offices'; // Default to all offices for directors
+        }
+        await _loadPendingUsers();
+      }
+    } catch (e) {
+      _showMessage('Error initializing screen: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadPendingUsers() async {
@@ -27,7 +60,8 @@ class _ApproveUsersScreenState extends State<ApproveUsersScreen> {
     });
 
     try {
-      _pendingUsers = await _userService.getPendingUsers();
+      _allPendingUsers = await _userService.getPendingUsers();
+      _filterUsers();
     } catch (e) {
       _showMessage('Error loading pending users: $e');
     } finally {
@@ -35,6 +69,19 @@ class _ApproveUsersScreenState extends State<ApproveUsersScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _filterUsers() {
+    setState(() {
+      _filteredPendingUsers = _allPendingUsers.where((user) {
+        // Office filter for directors
+        final matchesOffice = _selectedOfficeId == null ||
+            _selectedOfficeId == 'all_offices' ||
+            user.officeId == _selectedOfficeId;
+
+        return matchesOffice;
+      }).toList();
+    });
   }
 
   Future<void> _approveUser(UserModel user) async {
@@ -117,23 +164,111 @@ class _ApproveUsersScreenState extends State<ApproveUsersScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _pendingUsers.isEmpty
-          ? const Center(
-              child: Text(
-                'No users pending approval',
-                style: TextStyle(color: Colors.grey),
-              ),
-            )
-          : ListView.builder(
+      body: Column(
+        children: [
+          // Office selector for directors
+          if (_currentUser?.role == UserRole.director) ...[
+            Container(
               padding: const EdgeInsets.all(16),
-              itemCount: _pendingUsers.length,
-              itemBuilder: (context, index) {
-                final user = _pendingUsers[index];
-                return _buildUserCard(user);
-              },
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.business, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Office:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedOfficeId,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                      items: [
+                        // Add "All Offices" option for directors
+                        const DropdownMenuItem<String>(
+                          value: 'all_offices',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.business_center,
+                                size: 16,
+                                color: Colors.orange,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'All Offices',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Add individual offices
+                        ..._allOffices.map((office) {
+                          return DropdownMenuItem<String>(
+                            value: office.id,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.business, size: 16),
+                                const SizedBox(width: 8),
+                                Text(office.name),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                      onChanged: (String? newValue) {
+                        if (newValue != null && newValue != _selectedOfficeId) {
+                          setState(() {
+                            _selectedOfficeId = newValue;
+                          });
+                          _filterUsers();
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
+          ],
+
+          // Users list
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredPendingUsers.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No users pending approval',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _filteredPendingUsers.length,
+                    itemBuilder: (context, index) {
+                      final user = _filteredPendingUsers[index];
+                      return _buildUserCard(user);
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -225,7 +360,7 @@ class _ApproveUsersScreenState extends State<ApproveUsersScreen> {
                 const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
                 const SizedBox(width: 8),
                 Text(
-                  'Requested: ${user.createdAt.toLocal().toString().split(' ')[0]}',
+                  'Requested: ${user.createdAt.toString().split(' ')[0]}',
                   style: const TextStyle(color: Colors.grey),
                 ),
               ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/work_service.dart';
+import '../../widgets/loading_widget.dart';
 import 'lead_sidebar.dart';
 
 class LeadDashboard extends StatefulWidget {
@@ -78,9 +79,12 @@ class _LeadDashboardState extends State<LeadDashboard> {
           IconButton(icon: const Icon(Icons.logout), onPressed: _handleLogout),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _buildDashboard(),
+      body: PullToRefreshWrapper(
+        onRefresh: _loadDashboard,
+        child: _isLoading
+            ? const LoadingWidget(message: 'Loading dashboard...')
+            : _buildDashboard(),
+      ),
       drawer: LeadSidebar(currentUser: _currentUser, onLogout: _handleLogout),
     );
   }

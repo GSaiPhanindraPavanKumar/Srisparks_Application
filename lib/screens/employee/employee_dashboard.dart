@@ -3,6 +3,7 @@ import '../../models/user_model.dart';
 import '../../models/work_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/work_service.dart';
+import '../../widgets/loading_widget.dart';
 import 'employee_sidebar.dart';
 
 class EmployeeDashboard extends StatefulWidget {
@@ -82,9 +83,12 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
           IconButton(icon: const Icon(Icons.logout), onPressed: _handleLogout),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _buildDashboard(),
+      body: PullToRefreshWrapper(
+        onRefresh: _loadDashboard,
+        child: _isLoading
+            ? const LoadingWidget(message: 'Loading dashboard...')
+            : _buildDashboard(),
+      ),
       drawer: EmployeeSidebar(
         currentUser: _currentUser,
         onLogout: _handleLogout,
@@ -95,7 +99,6 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
   Widget _buildDashboard() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isTablet = constraints.maxWidth > 600;
         final isMobile = constraints.maxWidth <= 600;
 
         return SingleChildScrollView(

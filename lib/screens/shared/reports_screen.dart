@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../services/work_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/office_service.dart';
 import '../../models/user_model.dart';
+import '../../models/office_model.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -13,12 +15,13 @@ class ReportsScreen extends StatefulWidget {
 class _ReportsScreenState extends State<ReportsScreen> {
   final WorkService _workService = WorkService();
   final AuthService _authService = AuthService();
+  final OfficeService _officeService = OfficeService();
 
   Map<String, dynamic>? _workStats;
   bool _isLoading = true;
   UserModel? _currentUser;
   String? _selectedOfficeId;
-  List<String> _availableOffices = [];
+  List<OfficeModel> _allOffices = [];
 
   @override
   void initState() {
@@ -36,16 +39,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
       if (_currentUser != null) {
         // Load available offices for directors
         if (_currentUser!.role == UserRole.director) {
-          final allWork = await _workService.getAllWork();
-          _availableOffices = allWork.map((w) => w.officeId).toSet().toList();
+          _allOffices = await _officeService.getAllOffices();
+          _selectedOfficeId ??= 'all_offices'; // Default to all offices for directors
         }
 
         // Load work statistics based on user role and selected office
         String? officeId;
         if (_currentUser!.role == UserRole.director) {
-          officeId = _selectedOfficeId; // Can be null for "All offices"
+          officeId = _selectedOfficeId == 'all_offices' ? null : _selectedOfficeId;
         } else {
+          // Non-directors use their assigned office (must not be null)
           officeId = _currentUser!.officeId;
+          if (officeId == null) {
+            throw Exception('User is not assigned to any office');
+          }
         }
 
         _workStats = await _workService.getWorkStatistics(officeId);
@@ -91,16 +98,80 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
                   // Office filter for directors
                   if (_currentUser?.role == UserRole.director &&
-                      _availableOffices.isNotEmpty) ...[
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
+                      _allOffices.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.deepPurple.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildOfficeFilterChip('All Offices', null),
-                          ..._availableOffices.map(
-                            (officeId) => _buildOfficeFilterChip(
-                              'Office $officeId',
-                              officeId,
+                          Row(
+                            children: [
+                              const Icon(Icons.business, color: Colors.deepPurple),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Office:',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedOfficeId,
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                              ),
+                              items: [
+                                // Add "All Offices" option for directors
+                                const DropdownMenuItem<String>(
+                                  value: 'all_offices',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.business_center,
+                                        size: 16,
+                                        color: Colors.deepPurple,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'All Offices',
+                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Add individual offices
+                                ..._allOffices.map((office) {
+                                  return DropdownMenuItem<String>(
+                                    value: office.id,
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.business, size: 16),
+                                        const SizedBox(width: 8),
+                                        Text(office.name),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ],
+                              onChanged: (String? newValue) {
+                                if (newValue != null && newValue != _selectedOfficeId) {
+                                  setState(() {
+                                    _selectedOfficeId = newValue;
+                                  });
+                                  _loadReports();
+                                }
+                              },
                             ),
                           ),
                         ],
@@ -137,7 +208,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 1.5,
+      childAspectRatio: 1.8, // Increased from 1.5 to give more width
       children: [
         _buildStatsCard(
           'Pending Work',
@@ -175,20 +246,41 @@ class _ReportsScreenState extends State<ReportsScreen> {
   ) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(8),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisSize: MainAxisSize.max,
           children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            Expanded(
+              flex: 2,
+              child: Icon(icon, size: 24, color: color),
             ),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-              textAlign: TextAlign.center,
+            const SizedBox(height: 4), // Added spacing between icon and number
+            Expanded(
+              flex: 2,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 2), // Added spacing between number and title
+            Expanded(
+              flex: 2,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  title,
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                ),
+              ),
             ),
           ],
         ),
@@ -239,25 +331,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
           },
         ),
       ],
-    );
-  }
-
-  Widget _buildOfficeFilterChip(String label, String? officeId) {
-    final isSelected = _selectedOfficeId == officeId;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (selected) {
-          setState(() {
-            _selectedOfficeId = selected ? officeId : null;
-          });
-          _loadReports();
-        },
-        backgroundColor: Colors.grey[200],
-        selectedColor: Colors.deepPurple.withOpacity(0.2),
-      ),
     );
   }
 }

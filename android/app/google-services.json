@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "438033937768",
+    "project_id": "srisparksapplication",
+    "storage_bucket": "srisparksapplication.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:438033937768:android:c3781c88517981dc3f92dd",
+        "android_client_info": {
+          "package_name": "com.example.srisparks_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAO1mUjNAYoyq7tk2TcXydpLilnGX4Dhb8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

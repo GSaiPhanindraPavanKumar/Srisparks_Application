@@ -28,6 +28,7 @@ class WorkModel {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final Map<String, dynamic>? metadata;
+  final String? assignedUserName; // Added field for assigned user's name
 
   WorkModel({
     required this.id,
@@ -55,6 +56,7 @@ class WorkModel {
     required this.createdAt,
     this.updatedAt,
     this.metadata,
+    this.assignedUserName, // Added parameter for assigned user's name
   });
 
   factory WorkModel.fromJson(Map<String, dynamic> json) {
@@ -100,6 +102,9 @@ class WorkModel {
           ? DateTime.parse(json['updated_at'])
           : null,
       metadata: json['metadata'],
+      assignedUserName: json['assigned_user'] != null 
+          ? (json['assigned_user']['full_name'] ?? json['assigned_user']['email'])
+          : null,
     );
   }
 
@@ -184,7 +189,6 @@ class WorkModel {
     return status == WorkStatus.completed || status == WorkStatus.in_progress;
   }
 
-  // Helper getter for assigned to name (would typically be fetched from a relationship)
-  String? get assignedToName =>
-      null; // This should be populated via a join query
+  // Helper getter for assigned to name (now populated from join query)
+  String? get assignedToName => assignedUserName;
 }

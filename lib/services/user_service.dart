@@ -268,6 +268,9 @@ class UserService {
         teamMembers = (response as List)
             .map((user) => UserModel.fromJson(user))
             .toList();
+      } else {
+        // Safety: Manager without office assignment - show empty list
+        teamMembers = [];
       }
     } else if (currentUser.role == UserRole.employee && currentUser.isLead) {
       // For leads: show employees from the same office
@@ -284,6 +287,9 @@ class UserService {
         teamMembers = (response as List)
             .map((user) => UserModel.fromJson(user))
             .toList();
+      } else {
+        // Safety: Employee lead without office assignment - show empty list
+        teamMembers = [];
       }
     } else {
       // For other users: show direct reports

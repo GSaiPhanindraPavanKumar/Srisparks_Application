@@ -39,6 +39,8 @@ class OfficeService {
     String? country,
     String? phoneNumber,
     String? email,
+    double? latitude,
+    double? longitude,
   }) async {
     final officeData = {
       'name': name,
@@ -49,6 +51,8 @@ class OfficeService {
       'country': country,
       'phone_number': phoneNumber,
       'email': email,
+      'latitude': latitude,
+      'longitude': longitude,
       'is_active': true,
       'created_at': DateTime.now().toIso8601String(),
     };

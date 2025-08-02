@@ -8,6 +8,8 @@ class OfficeModel {
   final String? country;
   final String? phoneNumber;
   final String? email;
+  final double? latitude;
+  final double? longitude;
   final bool isActive;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -23,6 +25,8 @@ class OfficeModel {
     this.country,
     this.phoneNumber,
     this.email,
+    this.latitude,
+    this.longitude,
     required this.isActive,
     required this.createdAt,
     this.updatedAt,
@@ -40,6 +44,8 @@ class OfficeModel {
       country: json['country'],
       phoneNumber: json['phone_number'],
       email: json['email'],
+      latitude: json['latitude']?.toDouble(),
+      longitude: json['longitude']?.toDouble(),
       isActive: json['is_active'] ?? true,
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: json['updated_at'] != null
@@ -60,6 +66,8 @@ class OfficeModel {
       'country': country,
       'phone_number': phoneNumber,
       'email': email,
+      'latitude': latitude,
+      'longitude': longitude,
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),

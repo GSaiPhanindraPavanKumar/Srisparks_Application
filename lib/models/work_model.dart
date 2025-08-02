@@ -95,15 +95,17 @@ class WorkModel {
       startLocationLatitude: json['start_location_latitude']?.toDouble(),
       startLocationLongitude: json['start_location_longitude']?.toDouble(),
       completeLocationLatitude: json['complete_location_latitude']?.toDouble(),
-      completeLocationLongitude: json['complete_location_longitude']?.toDouble(),
+      completeLocationLongitude: json['complete_location_longitude']
+          ?.toDouble(),
       completionResponse: json['completion_response'],
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'])
           : null,
       metadata: json['metadata'],
-      assignedUserName: json['assigned_user'] != null 
-          ? (json['assigned_user']['full_name'] ?? json['assigned_user']['email'])
+      assignedUserName: json['assigned_user'] != null
+          ? (json['assigned_user']['full_name'] ??
+                json['assigned_user']['email'])
           : null,
     );
   }

@@ -44,7 +44,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         // If director, load all offices for selection
         if (_currentUser!.role == UserRole.director) {
           _allOffices = await _officeService.getAllOffices();
-          _selectedOfficeId = 'all_offices'; // Default to all offices for directors
+          _selectedOfficeId =
+              'all_offices'; // Default to all offices for directors
         }
         await _loadUsers();
       }
@@ -90,7 +91,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
             _selectedStatus == null || user.status == _selectedStatus;
 
         // Office filter for directors
-        final matchesOffice = _selectedOfficeId == null ||
+        final matchesOffice =
+            _selectedOfficeId == null ||
             _selectedOfficeId == 'all_offices' ||
             user.officeId == _selectedOfficeId;
 
@@ -224,7 +226,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Filter by Role',
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                   items: [
                     const DropdownMenuItem(
@@ -252,7 +257,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Filter by Status',
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                   items: [
                     const DropdownMenuItem(

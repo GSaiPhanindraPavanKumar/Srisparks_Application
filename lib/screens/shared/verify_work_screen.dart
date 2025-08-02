@@ -42,7 +42,8 @@ class _VerifyWorkScreenState extends State<VerifyWorkScreen> {
         // If director, load all offices for selection
         if (_currentUser!.role == UserRole.director) {
           _allOffices = await _officeService.getAllOffices();
-          _selectedOfficeId = 'all_offices'; // Default to all offices for directors
+          _selectedOfficeId =
+              'all_offices'; // Default to all offices for directors
         }
         await _loadPendingWork();
       }
@@ -76,7 +77,8 @@ class _VerifyWorkScreenState extends State<VerifyWorkScreen> {
     setState(() {
       _filteredPendingWork = _allPendingWork.where((work) {
         // Office filter for directors
-        final matchesOffice = _selectedOfficeId == null ||
+        final matchesOffice =
+            _selectedOfficeId == null ||
             _selectedOfficeId == 'all_offices' ||
             work.officeId == _selectedOfficeId;
 

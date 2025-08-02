@@ -4,6 +4,7 @@ import '../screens/manager/manager_dashboard.dart';
 import '../screens/lead/lead_dashboard.dart';
 import '../screens/employee/employee_dashboard.dart';
 import '../screens/manager/assign_work_screen.dart';
+import '../screens/director/assign_work_screen.dart' as director_assign;
 import '../screens/shared/verify_work_screen.dart';
 import '../screens/shared/customers_screen.dart';
 import '../screens/shared/reports_screen.dart';
@@ -16,6 +17,8 @@ import '../screens/shared/settings_screen.dart';
 import '../screens/shared/time_tracking_screen.dart';
 import '../screens/shared/my_work_screen.dart';
 import '../screens/manager/manage_work_screen.dart';
+import '../screens/manager/stock_inventory_screen.dart';
+import '../screens/director/director_stock_management_screen.dart';
 import '../screens/shared/help_screen.dart';
 import '../auth/auth_screen.dart';
 import '../services/auth_service.dart';
@@ -31,6 +34,7 @@ class AppRoutes {
   static const String lead = '/lead';
   static const String employee = '/employee';
   static const String assignWork = '/assign-work';
+  static const String directorAssignWork = '/director/assign-work';
   static const String verifyWork = '/verify-work';
   static const String customers = '/customers';
   static const String reports = '/reports';
@@ -43,6 +47,8 @@ class AppRoutes {
   static const String timeTracking = '/time-tracking';
   static const String myWork = '/my-work';
   static const String manageWork = '/manage-work';
+  static const String stockInventory = '/stock-inventory';
+  static const String directorStockManagement = '/director/stock-management';
   static const String help = '/help';
 }
 
@@ -128,6 +134,15 @@ class AppRouter {
           settings: settings,
         );
 
+      case AppRoutes.directorAssignWork:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: director_assign.DirectorAssignWorkScreen(),
+            requiredRole: UserRole.director,
+          ),
+          settings: settings,
+        );
+
       case AppRoutes.verifyWork:
         return MaterialPageRoute(
           builder: (_) => const RouteGuard(child: VerifyWorkScreen()),
@@ -208,6 +223,24 @@ class AppRouter {
           builder: (_) => const RouteGuard(
             child: ManageWorkScreen(),
             requiresManagementRole: true,
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.stockInventory:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: StockInventoryScreen(),
+            requiredRole: UserRole.manager,
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.directorStockManagement:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: DirectorStockManagementScreen(),
+            requiredRole: UserRole.director,
           ),
           settings: settings,
         );

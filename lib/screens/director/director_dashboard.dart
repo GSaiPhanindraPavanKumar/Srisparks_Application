@@ -5,6 +5,7 @@ import '../../services/work_service.dart';
 import '../../services/office_service.dart';
 import '../../services/customer_service.dart';
 import '../../services/user_service.dart';
+import '../../config/app_router.dart';
 import 'director_sidebar.dart';
 
 class DirectorDashboard extends StatefulWidget {
@@ -380,13 +381,20 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
 
   Widget _buildQuickActions(bool isMobile) {
     return GridView.count(
-      crossAxisCount: 2,
+      crossAxisCount: isMobile ? 2 : 3,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: isMobile ? 8 : 12,
       mainAxisSpacing: isMobile ? 8 : 12,
       childAspectRatio: isMobile ? 1.1 : 1.2,
       children: [
+        _buildActionCard(
+          'Assign Work',
+          Icons.assignment,
+          Colors.indigo,
+          () => Navigator.pushNamed(context, AppRoutes.directorAssignWork),
+          isMobile,
+        ),
         _buildActionCard(
           'Manage Users',
           Icons.people_outline,
@@ -413,6 +421,13 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
           Icons.location_city,
           Colors.purple,
           () => Navigator.pushNamed(context, '/manage-offices'),
+          isMobile,
+        ),
+        _buildActionCard(
+          'Verify Work',
+          Icons.verified,
+          Colors.teal,
+          () => Navigator.pushNamed(context, '/verify-work'),
           isMobile,
         ),
       ],

@@ -40,13 +40,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
         // Load available offices for directors
         if (_currentUser!.role == UserRole.director) {
           _allOffices = await _officeService.getAllOffices();
-          _selectedOfficeId ??= 'all_offices'; // Default to all offices for directors
+          _selectedOfficeId ??=
+              'all_offices'; // Default to all offices for directors
         }
 
         // Load work statistics based on user role and selected office
         String? officeId;
         if (_currentUser!.role == UserRole.director) {
-          officeId = _selectedOfficeId == 'all_offices' ? null : _selectedOfficeId;
+          officeId = _selectedOfficeId == 'all_offices'
+              ? null
+              : _selectedOfficeId;
         } else {
           // Non-directors use their assigned office (must not be null)
           officeId = _currentUser!.officeId;
@@ -111,7 +114,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.business, color: Colors.deepPurple),
+                              const Icon(
+                                Icons.business,
+                                color: Colors.deepPurple,
+                              ),
                               const SizedBox(width: 8),
                               const Text(
                                 'Office:',
@@ -145,7 +151,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                       SizedBox(width: 8),
                                       Text(
                                         'All Offices',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -165,7 +173,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 }).toList(),
                               ],
                               onChanged: (String? newValue) {
-                                if (newValue != null && newValue != _selectedOfficeId) {
+                                if (newValue != null &&
+                                    newValue != _selectedOfficeId) {
                                   setState(() {
                                     _selectedOfficeId = newValue;
                                   });
@@ -251,10 +260,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           mainAxisSize: MainAxisSize.max,
           children: [
-            Expanded(
-              flex: 2,
-              child: Icon(icon, size: 24, color: color),
-            ),
+            Expanded(flex: 2, child: Icon(icon, size: 24, color: color)),
             const SizedBox(height: 4), // Added spacing between icon and number
             Expanded(
               flex: 2,

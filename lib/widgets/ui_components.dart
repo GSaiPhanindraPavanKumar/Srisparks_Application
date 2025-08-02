@@ -30,10 +30,7 @@ class BeautifulCard extends StatelessWidget {
         gradient: hasGradient ? AppTheme.cardGradient : null,
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         boxShadow: AppTheme.cardShadow,
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.1),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
       ),
       child: child,
     );
@@ -52,10 +49,7 @@ class BeautifulCard extends StatelessWidget {
       );
     }
 
-    return Container(
-      margin: margin,
-      child: cardChild,
-    );
+    return Container(margin: margin, child: cardChild);
   }
 }
 
@@ -117,19 +111,18 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = AppTheme.getStatusColor(status);
-    
+
     return Container(
-      padding: padding ?? const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacing12,
-        vertical: AppTheme.spacing4,
-      ),
+      padding:
+          padding ??
+          const EdgeInsets.symmetric(
+            horizontal: AppTheme.spacing12,
+            vertical: AppTheme.spacing4,
+          ),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
       ),
       child: Text(
         status.toUpperCase(),
@@ -149,38 +142,28 @@ class RoleBadge extends StatelessWidget {
   final double? fontSize;
   final EdgeInsetsGeometry? padding;
 
-  const RoleBadge({
-    super.key,
-    required this.role,
-    this.fontSize,
-    this.padding,
-  });
+  const RoleBadge({super.key, required this.role, this.fontSize, this.padding});
 
   @override
   Widget build(BuildContext context) {
     final color = AppTheme.getRoleColor(role);
-    
+
     return Container(
-      padding: padding ?? const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacing12,
-        vertical: AppTheme.spacing4,
-      ),
+      padding:
+          padding ??
+          const EdgeInsets.symmetric(
+            horizontal: AppTheme.spacing12,
+            vertical: AppTheme.spacing4,
+          ),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            _getRoleIcon(role),
-            size: (fontSize ?? 12) + 2,
-            color: color,
-          ),
+          Icon(_getRoleIcon(role), size: (fontSize ?? 12) + 2, color: color),
           const SizedBox(width: AppTheme.spacing4),
           Text(
             role.toUpperCase(),
@@ -233,7 +216,7 @@ class MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardColor = color ?? AppTheme.primary;
-    
+
     return BeautifulCard(
       onTap: onTap,
       hasGradient: true,
@@ -249,11 +232,7 @@ class MetricCard extends StatelessWidget {
                   color: cardColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
-                child: Icon(
-                  icon,
-                  color: cardColor,
-                  size: 20,
-                ),
+                child: Icon(icon, color: cardColor, size: 20),
               ),
               const Spacer(),
               if (onTap != null)
@@ -358,7 +337,9 @@ class BeautifulButton extends StatelessWidget {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: foregroundColor ?? (isOutlined ? AppTheme.primary : Colors.white),
+              color:
+                  foregroundColor ??
+                  (isOutlined ? AppTheme.primary : Colors.white),
             ),
           ),
       ],
@@ -378,10 +359,12 @@ class BeautifulButton extends StatelessWidget {
             onTap: isLoading ? null : onPressed,
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             child: Container(
-              padding: padding ?? const EdgeInsets.symmetric(
-                horizontal: AppTheme.spacing24,
-                vertical: AppTheme.spacing16,
-              ),
+              padding:
+                  padding ??
+                  const EdgeInsets.symmetric(
+                    horizontal: AppTheme.spacing24,
+                    vertical: AppTheme.spacing16,
+                  ),
               child: buttonChild,
             ),
           ),
@@ -395,10 +378,12 @@ class BeautifulButton extends StatelessWidget {
         child: OutlinedButton(
           onPressed: isLoading ? null : onPressed,
           style: OutlinedButton.styleFrom(
-            padding: padding ?? const EdgeInsets.symmetric(
-              horizontal: AppTheme.spacing24,
-              vertical: AppTheme.spacing16,
-            ),
+            padding:
+                padding ??
+                const EdgeInsets.symmetric(
+                  horizontal: AppTheme.spacing24,
+                  vertical: AppTheme.spacing16,
+                ),
             side: BorderSide(
               color: backgroundColor ?? AppTheme.primary,
               width: 1.5,
@@ -415,10 +400,12 @@ class BeautifulButton extends StatelessWidget {
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: backgroundColor ?? AppTheme.primary,
-          padding: padding ?? const EdgeInsets.symmetric(
-            horizontal: AppTheme.spacing24,
-            vertical: AppTheme.spacing16,
-          ),
+          padding:
+              padding ??
+              const EdgeInsets.symmetric(
+                horizontal: AppTheme.spacing24,
+                vertical: AppTheme.spacing16,
+              ),
         ),
         child: buttonChild,
       ),
@@ -467,7 +454,7 @@ class UserAvatar extends StatelessWidget {
 
   String _getInitials(String? name) {
     if (name == null || name.isEmpty) return 'U';
-    
+
     final words = name.split(' ');
     if (words.length >= 2) {
       return '${words[0][0]}${words[1][0]}'.toUpperCase();

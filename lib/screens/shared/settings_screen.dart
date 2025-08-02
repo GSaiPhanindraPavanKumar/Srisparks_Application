@@ -39,11 +39,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       // Load current user
       _currentUser = await _authService.getCurrentUserProfile();
-      
+
       // Load settings from local storage or API
       // For now, using default values
       setState(() {
@@ -69,8 +69,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await _authService.signOut();
         if (mounted) {
           Navigator.pushNamedAndRemoveUntil(
-            context, 
-            AppRoutes.auth, 
+            context,
+            AppRoutes.auth,
             (route) => false,
           );
         }
@@ -468,11 +468,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: AppTheme.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                 ),
-                child: Icon(
-                  icon,
-                  color: AppTheme.primary,
-                  size: 24,
-                ),
+                child: Icon(icon, color: AppTheme.primary, size: 24),
               ),
               const SizedBox(width: AppTheme.spacing12),
               Text(
@@ -504,7 +500,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         color: AppTheme.surfaceVariant,
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         border: Border.all(
-          color: value ? AppTheme.primary.withOpacity(0.3) : Colors.grey.withOpacity(0.2),
+          color: value
+              ? AppTheme.primary.withOpacity(0.3)
+              : Colors.grey.withOpacity(0.2),
           width: 1,
         ),
       ),
@@ -554,10 +552,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: BoxDecoration(
         color: AppTheme.surfaceVariant,
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.grey.withOpacity(0.2), width: 1),
       ),
       child: Row(
         children: [
@@ -591,10 +586,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 fontWeight: FontWeight.w500,
               ),
               items: items.map((item) {
-                return DropdownMenuItem(
-                  value: item,
-                  child: Text(item),
-                );
+                return DropdownMenuItem(value: item, child: Text(item));
               }).toList(),
               onChanged: (newValue) {
                 if (newValue != null) {
@@ -620,10 +612,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: BoxDecoration(
         color: AppTheme.surfaceVariant,
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.grey.withOpacity(0.2), width: 1),
       ),
       child: Material(
         color: Colors.transparent,
@@ -637,7 +626,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Container(
                   padding: const EdgeInsets.all(AppTheme.spacing8),
                   decoration: BoxDecoration(
-                    color: (iconColor ?? AppTheme.textSecondary).withOpacity(0.1),
+                    color: (iconColor ?? AppTheme.textSecondary).withOpacity(
+                      0.1,
+                    ),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
                   child: Icon(
@@ -653,10 +644,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Text(
                         title,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
                       ),
                       const SizedBox(height: AppTheme.spacing4),
                       Text(

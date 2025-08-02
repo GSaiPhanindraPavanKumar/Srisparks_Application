@@ -12,6 +12,10 @@ enum ActivityType {
   customer_updated,
   office_created,
   office_updated,
+  stock_item_created,
+  stock_item_updated,
+  stock_movement,
+  stock_transfer,
   login,
   logout,
 }
@@ -110,6 +114,14 @@ class ActivityLogModel {
         return 'Office Created';
       case ActivityType.office_updated:
         return 'Office Updated';
+      case ActivityType.stock_item_created:
+        return 'Stock Item Created';
+      case ActivityType.stock_item_updated:
+        return 'Stock Item Updated';
+      case ActivityType.stock_movement:
+        return 'Stock Movement';
+      case ActivityType.stock_transfer:
+        return 'Stock Transfer';
       case ActivityType.login:
         return 'Login';
       case ActivityType.logout:

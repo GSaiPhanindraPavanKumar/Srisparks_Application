@@ -43,6 +43,12 @@ class DirectorSidebar extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, AppRoutes.approveUsers),
           ),
           ListTile(
+            leading: const Icon(Icons.assignment),
+            title: const Text('Assign Work'),
+            onTap: () =>
+                Navigator.pushNamed(context, AppRoutes.directorAssignWork),
+          ),
+          ListTile(
             leading: const Icon(Icons.work),
             title: const Text('Manage Work'),
             onTap: () => Navigator.pushNamed(context, AppRoutes.manageWork),
@@ -61,6 +67,11 @@ class DirectorSidebar extends StatelessWidget {
             leading: const Icon(Icons.location_city),
             title: const Text('Offices'),
             onTap: () => Navigator.pushNamed(context, AppRoutes.manageOffices),
+          ),
+          ListTile(
+            leading: const Icon(Icons.inventory),
+            title: const Text('Stock Management'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.directorStockManagement),
           ),
           ListTile(
             leading: const Icon(Icons.analytics),

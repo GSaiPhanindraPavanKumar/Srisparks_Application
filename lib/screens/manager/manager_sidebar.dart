@@ -58,6 +58,11 @@ class ManagerSidebar extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, '/customers'),
           ),
           ListTile(
+            leading: const Icon(Icons.inventory),
+            title: const Text('Stock Management'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.stockInventory),
+          ),
+          ListTile(
             leading: const Icon(Icons.analytics),
             title: const Text('Reports'),
             onTap: () => Navigator.pushNamed(context, '/reports'),

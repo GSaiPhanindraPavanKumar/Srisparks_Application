@@ -105,29 +105,26 @@ class _WorkDetailScreenState extends State<WorkDetailScreen> {
       List<Map<String, String>> mapOptions = [
         {
           'url': 'google.navigation:q=$lat,$lng',
-          'name': 'Google Navigation App'
+          'name': 'Google Navigation App',
         },
-        {
-          'url': 'geo:$lat,$lng?q=$lat,$lng($customerName)',
-          'name': 'Maps App'
-        },
+        {'url': 'geo:$lat,$lng?q=$lat,$lng($customerName)', 'name': 'Maps App'},
         {
           'url': 'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
-          'name': 'Google Maps Web (Directions)'
+          'name': 'Google Maps Web (Directions)',
         },
         {
           'url': 'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
-          'name': 'Google Maps Web'
+          'name': 'Google Maps Web',
         },
       ];
 
       bool opened = false;
       String lastError = '';
-      
+
       for (var mapOption in mapOptions) {
         try {
           final uri = Uri.parse(mapOption['url']!);
-          
+
           // For non-http URLs, try to launch directly without checking canLaunchUrl
           // as Android 11+ may not detect installed apps properly
           if (!mapOption['url']!.startsWith('http')) {
@@ -156,7 +153,7 @@ class _WorkDetailScreenState extends State<WorkDetailScreen> {
           continue;
         }
       }
-      
+
       if (!opened) {
         // Try one more fallback - basic Google Maps web URL
         try {
@@ -168,17 +165,17 @@ class _WorkDetailScreenState extends State<WorkDetailScreen> {
           print('Fallback also failed: $e');
         }
       }
-      
+
       if (!opened) {
         // Show more helpful error message with coordinates
         _showDialog(
           'Unable to Open Maps',
           'Could not open map applications on this device.\n\n'
-          'Customer Location:\n'
-          'Latitude: $lat\n'
-          'Longitude: $lng\n\n'
-          'You can manually search for these coordinates in Google Maps or any map application.\n\n'
-          'Last error: $lastError',
+              'Customer Location:\n'
+              'Latitude: $lat\n'
+              'Longitude: $lng\n\n'
+              'You can manually search for these coordinates in Google Maps or any map application.\n\n'
+              'Last error: $lastError',
         );
       }
     } catch (e) {
@@ -202,7 +199,9 @@ class _WorkDetailScreenState extends State<WorkDetailScreen> {
             onPressed: () {
               Navigator.pop(context);
               // Copy coordinates to clipboard would be nice, but requires additional package
-              _showMessage('You can search for: ${_customer!.latitude}, ${_customer!.longitude}');
+              _showMessage(
+                'You can search for: ${_customer!.latitude}, ${_customer!.longitude}',
+              );
             },
             child: const Text('Copy Info'),
           ),
@@ -324,230 +323,238 @@ class _WorkDetailScreenState extends State<WorkDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                  // Work Information Card
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.work,
-                                color: _getStatusColor(_work!.status),
-                                size: 28,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _work!.title,
-                                      style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: _getStatusColor(
-                                          _work!.status,
-                                        ).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        _work!.statusDisplayName,
-                                        style: TextStyle(
-                                          color: _getStatusColor(_work!.status),
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          if (_work!.description?.isNotEmpty == true) ...[
-                            const Text(
-                              'Description:',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _work!.description!,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-                          _buildDetailRow(
-                            'Priority',
-                            _work!.priorityDisplayName,
-                          ),
-                          if (_work!.dueDate != null)
-                            _buildDetailRow(
-                              'Due Date',
-                              _formatDate(_work!.dueDate!),
-                            ),
-                          if (_work!.startDate != null)
-                            _buildDetailRow(
-                              'Started',
-                              _formatDateTime(_work!.startDate!),
-                            ),
-                          if (_work!.completedDate != null)
-                            _buildDetailRow(
-                              'Completed',
-                              _formatDateTime(_work!.completedDate!),
-                            ),
-                          if (_work!.startDate != null &&
-                              _work!.completedDate != null)
-                            _buildDetailRow(
-                              'Time Worked',
-                              _calculateWorkDuration(
-                                _work!.startDate!,
-                                _work!.completedDate!,
-                              ),
-                            ),
-                          if (_work!.estimatedHours != null)
-                            _buildDetailRow(
-                              'Estimated Hours',
-                              '${_work!.estimatedHours} hours',
-                            ),
-                          if (_work!.rejectionReason != null) ...[
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Rejection Reason:',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.red,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _work!.rejectionReason!,
-                                    style: const TextStyle(color: Colors.red),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Customer Information Card - Hide for completed work for employees
-                  if (_customer != null && !_shouldHideCustomerInfo())
+                    // Work Information Card
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.person, color: Colors.blue),
-                                SizedBox(width: 12),
-                                Text(
-                                  'Customer Information',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
+                                Icon(
+                                  Icons.work,
+                                  color: _getStatusColor(_work!.status),
+                                  size: 28,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _work!.title,
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _getStatusColor(
+                                            _work!.status,
+                                          ).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          _work!.statusDisplayName,
+                                          style: TextStyle(
+                                            color: _getStatusColor(
+                                              _work!.status,
+                                            ),
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 16),
-                            _buildDetailRow('Name', _customer!.name),
-                            if (_customer!.email != null)
-                              _buildDetailRow('Email', _customer!.email!),
-                            if (_customer!.phoneNumber != null)
-                              _buildDetailRow('Phone', _customer!.phoneNumber!),
-                            if (_customer!.address != null)
-                              _buildDetailRow('Address', _customer!.address!),
-                            const SizedBox(height: 16),
-                            if (_customer!.latitude != null &&
-                                _customer!.longitude != null)
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: _openInMaps,
-                                  icon: const Icon(Icons.map),
-                                  label: const Text('Open in Maps'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    foregroundColor: Colors.white,
-                                  ),
+                            if (_work!.description?.isNotEmpty == true) ...[
+                              const Text(
+                                'Description:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
                                 ),
                               ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _work!.description!,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            _buildDetailRow(
+                              'Priority',
+                              _work!.priorityDisplayName,
+                            ),
+                            if (_work!.dueDate != null)
+                              _buildDetailRow(
+                                'Due Date',
+                                _formatDate(_work!.dueDate!),
+                              ),
+                            if (_work!.startDate != null)
+                              _buildDetailRow(
+                                'Started',
+                                _formatDateTime(_work!.startDate!),
+                              ),
+                            if (_work!.completedDate != null)
+                              _buildDetailRow(
+                                'Completed',
+                                _formatDateTime(_work!.completedDate!),
+                              ),
+                            if (_work!.startDate != null &&
+                                _work!.completedDate != null)
+                              _buildDetailRow(
+                                'Time Worked',
+                                _calculateWorkDuration(
+                                  _work!.startDate!,
+                                  _work!.completedDate!,
+                                ),
+                              ),
+                            if (_work!.estimatedHours != null)
+                              _buildDetailRow(
+                                'Estimated Hours',
+                                '${_work!.estimatedHours} hours',
+                              ),
+                            if (_work!.rejectionReason != null) ...[
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Rejection Reason:',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _work!.rejectionReason!,
+                                      style: const TextStyle(color: Colors.red),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
                     ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 16),
 
-                  // Action Buttons
-                  if (_work!.canStart || _work!.canComplete)
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _isProcessing
-                            ? null
-                            : () => _handleWorkAction(
-                                _work!.canStart ? 'start' : 'complete',
+                    // Customer Information Card - Hide for completed work for employees
+                    if (_customer != null && !_shouldHideCustomerInfo())
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.person, color: Colors.blue),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    'Customer Information',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
-                        icon: _isProcessing
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white,
+                              const SizedBox(height: 16),
+                              _buildDetailRow('Name', _customer!.name),
+                              if (_customer!.email != null)
+                                _buildDetailRow('Email', _customer!.email!),
+                              if (_customer!.phoneNumber != null)
+                                _buildDetailRow(
+                                  'Phone',
+                                  _customer!.phoneNumber!,
+                                ),
+                              if (_customer!.address != null)
+                                _buildDetailRow('Address', _customer!.address!),
+                              const SizedBox(height: 16),
+                              if (_customer!.latitude != null &&
+                                  _customer!.longitude != null)
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: _openInMaps,
+                                    icon: const Icon(Icons.map),
+                                    label: const Text('Open in Maps'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue,
+                                      foregroundColor: Colors.white,
+                                    ),
                                   ),
                                 ),
-                              )
-                            : Icon(
-                                _work!.canStart
-                                    ? Icons.play_arrow
-                                    : Icons.check,
-                              ),
-                        label: Text(
-                          _work!.canStart ? 'Start Work' : 'Complete Work',
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _work!.canStart
-                              ? Colors.green
-                              : Colors.blue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                    const SizedBox(height: 24),
+
+                    // Action Buttons
+                    if (_work!.canStart || _work!.canComplete)
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _isProcessing
+                              ? null
+                              : () => _handleWorkAction(
+                                  _work!.canStart ? 'start' : 'complete',
+                                ),
+                          icon: _isProcessing
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : Icon(
+                                  _work!.canStart
+                                      ? Icons.play_arrow
+                                      : Icons.check,
+                                ),
+                          label: Text(
+                            _work!.canStart ? 'Start Work' : 'Complete Work',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _work!.canStart
+                                ? Colors.green
+                                : Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-        ),
       ),
     );
   }

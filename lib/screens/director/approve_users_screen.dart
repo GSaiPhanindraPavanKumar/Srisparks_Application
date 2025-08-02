@@ -41,7 +41,8 @@ class _ApproveUsersScreenState extends State<ApproveUsersScreen> {
         // If director, load all offices for selection
         if (_currentUser!.role == UserRole.director) {
           _allOffices = await _officeService.getAllOffices();
-          _selectedOfficeId = 'all_offices'; // Default to all offices for directors
+          _selectedOfficeId =
+              'all_offices'; // Default to all offices for directors
         }
         await _loadPendingUsers();
       }
@@ -75,7 +76,8 @@ class _ApproveUsersScreenState extends State<ApproveUsersScreen> {
     setState(() {
       _filteredPendingUsers = _allPendingUsers.where((user) {
         // Office filter for directors
-        final matchesOffice = _selectedOfficeId == null ||
+        final matchesOffice =
+            _selectedOfficeId == null ||
             _selectedOfficeId == 'all_offices' ||
             user.officeId == _selectedOfficeId;
 

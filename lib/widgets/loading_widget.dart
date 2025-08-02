@@ -64,10 +64,7 @@ class LoadingOverlay extends StatelessWidget {
         if (isLoading)
           Container(
             color: Colors.black.withOpacity(0.3),
-            child: LoadingWidget(
-              message: loadingMessage,
-              color: Colors.purple,
-            ),
+            child: LoadingWidget(message: loadingMessage, color: Colors.purple),
           ),
       ],
     );

@@ -372,6 +372,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         return Colors.purple;
       case UserRole.manager:
         return Colors.indigo;
+      case UserRole.lead:
+        return Colors.orange;
       case UserRole.employee:
         return Colors.green;
     }

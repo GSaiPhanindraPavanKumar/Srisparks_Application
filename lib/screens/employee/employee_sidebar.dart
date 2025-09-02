@@ -30,12 +30,45 @@ class EmployeeSidebar extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.dashboard),
             title: const Text('Dashboard'),
-            onTap: () => Navigator.pop(context),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.employee),
+          ),
+          ListTile(
+            leading: const Icon(Icons.people),
+            title: const Text('Customer Management'),
+            onTap: () => Navigator.pushNamed(
+              context,
+              AppRoutes.employeeUnifiedDashboard,
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.work_outline),
             title: const Text('My Work'),
-            onTap: () => Navigator.pushNamed(context, '/my-work'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.myWork),
+          ),
+          ListTile(
+            leading: const Icon(Icons.add_business),
+            title: const Text('New Application'),
+            onTap: () => Navigator.pushNamed(
+              context,
+              AppRoutes.createCustomerApplication,
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.dashboard_customize),
+            title: const Text('Customer Projects'),
+            onTap: () =>
+                Navigator.pushNamed(context, AppRoutes.unifiedCustomers),
+          ),
+          ListTile(
+            leading: const Icon(Icons.description),
+            title: const Text('My Applications'),
+            onTap: () =>
+                Navigator.pushNamed(context, AppRoutes.customerApplications),
+          ),
+          ListTile(
+            leading: const Icon(Icons.access_time),
+            title: const Text('Attendance'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.attendance),
           ),
           ListTile(
             leading: const Icon(Icons.person),
@@ -45,7 +78,7 @@ class EmployeeSidebar extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.help),
             title: const Text('Help'),
-            onTap: () => Navigator.pushNamed(context, '/help'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.help),
           ),
           const Divider(),
           ListTile(

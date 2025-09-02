@@ -16,18 +16,24 @@ class StockItemModel {
   });
 
   factory StockItemModel.fromJson(Map<String, dynamic> json) {
-    return StockItemModel(
-      id: json['id'],
-      name: json['name'],
-      currentStock: json['current_stock'],
-      officeId: json['office_id'],
-      createdAt: json['created_at'] != null 
-        ? DateTime.parse(json['created_at']) 
-        : null,
-      updatedAt: json['updated_at'] != null 
-        ? DateTime.parse(json['updated_at']) 
-        : null,
-    );
+    try {
+      return StockItemModel(
+        id: json['id']?.toString(),
+        name: json['name']?.toString() ?? '',
+        currentStock: (json['current_stock'] as num?)?.toInt() ?? 0,
+        officeId: json['office_id']?.toString() ?? '',
+        createdAt: json['created_at'] != null
+            ? DateTime.parse(json['created_at'].toString())
+            : null,
+        updatedAt: json['updated_at'] != null
+            ? DateTime.parse(json['updated_at'].toString())
+            : null,
+      );
+    } catch (e) {
+      print('Error parsing StockItemModel from JSON: $e');
+      print('JSON data: $json');
+      rethrow;
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -36,12 +42,12 @@ class StockItemModel {
       'current_stock': currentStock,
       'office_id': officeId,
     };
-    
+
     // Only include id if it's not null (for updates)
     if (id != null) {
       json['id'] = id;
     }
-    
+
     // Only include timestamps if they're not null
     if (createdAt != null) {
       json['created_at'] = createdAt!.toIso8601String();
@@ -49,7 +55,7 @@ class StockItemModel {
     if (updatedAt != null) {
       json['updated_at'] = updatedAt!.toIso8601String();
     }
-    
+
     return json;
   }
 

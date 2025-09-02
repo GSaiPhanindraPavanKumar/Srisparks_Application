@@ -7,25 +7,39 @@ class StockService {
 
   // Get all stock items for an office
   Future<List<StockItemModel>> getStockItemsByOffice(String officeId) async {
-    print('Getting stock items for office: $officeId');
-    
-    final response = await _supabase
-        .from('stock_items')
-        .select()
-        .eq('office_id', officeId)
-        .order('name', ascending: true);
+    try {
+      print('Getting stock items for office: $officeId');
 
-    print('Found ${(response as List).length} stock items for office $officeId');
-    
-    return (response as List)
-        .map((item) => StockItemModel.fromJson(item))
-        .toList();
+      final response = await _supabase
+          .from('stock_items')
+          .select()
+          .eq('office_id', officeId)
+          .order('name', ascending: true);
+
+      print('Found ${response.length} stock items for office $officeId');
+
+      // Ensure response is a List and convert each item
+      if (response is List) {
+        return response.map((item) {
+          if (item is Map<String, dynamic>) {
+            return StockItemModel.fromJson(item);
+          } else {
+            throw Exception('Invalid item format in stock response');
+          }
+        }).toList();
+      } else {
+        throw Exception('Invalid response format from stock_items query');
+      }
+    } catch (e) {
+      print('Error in getStockItemsByOffice: $e');
+      rethrow;
+    }
   }
 
   // Create a new stock item
   Future<StockItemModel> createStockItem(StockItemModel item) async {
     print('Creating stock item: ${item.name} for office: ${item.officeId}');
-    
+
     final response = await _supabase
         .from('stock_items')
         .insert(item.toJson())
@@ -33,13 +47,15 @@ class StockService {
         .single();
 
     print('Stock item created successfully: ${response['id']}');
-    
+
     final createdItem = StockItemModel.fromJson(response);
-    
+
     // If initial stock is greater than 0, log it as an 'add' action
     if (createdItem.currentStock > 0) {
-      print('Logging initial stock: ${createdItem.currentStock} for item ${createdItem.id}');
-      
+      print(
+        'Logging initial stock: ${createdItem.currentStock} for item ${createdItem.id}',
+      );
+
       await _supabase.from('stock_log').insert({
         'stock_item_id': createdItem.id,
         'action_type': 'add',
@@ -51,10 +67,10 @@ class StockService {
         'user_id': _supabase.auth.currentUser?.id,
         'created_at': DateTime.now().toIso8601String(),
       });
-      
+
       print('Initial stock logged successfully');
     }
-    
+
     return createdItem;
   }
 
@@ -76,7 +92,7 @@ class StockService {
 
       final stockItem = StockItemModel.fromJson(currentItem);
       final previousStock = stockItem.currentStock;
-      
+
       int newStock;
       if (action == 'add') {
         newStock = previousStock + quantity;
@@ -92,10 +108,15 @@ class StockService {
       // Update stock item
       await _supabase
           .from('stock_items')
-          .update({'current_stock': newStock, 'updated_at': DateTime.now().toIso8601String()})
+          .update({
+            'current_stock': newStock,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
           .eq('id', stockItemId);
 
-      print('Stock item updated: $stockItemId from $previousStock to $newStock');
+      print(
+        'Stock item updated: $stockItemId from $previousStock to $newStock',
+      );
 
       // Log the transaction
       final logData = {
@@ -110,11 +131,11 @@ class StockService {
         'user_id': _supabase.auth.currentUser?.id,
         'created_at': DateTime.now().toIso8601String(),
       };
-      
+
       print('Inserting stock log: $logData');
-      
+
       await _supabase.from('stock_log').insert(logData);
-      
+
       print('Stock log inserted successfully');
 
       return true;
@@ -125,26 +146,31 @@ class StockService {
   }
 
   // Get stock history/log for an office
-  Future<List<StockLogModel>> getStockLog({String? officeId, String? stockItemId}) async {
-    print('Getting stock log for officeId: $officeId, stockItemId: $stockItemId');
-    
+  Future<List<StockLogModel>> getStockLog({
+    String? officeId,
+    String? stockItemId,
+  }) async {
+    print(
+      'Getting stock log for officeId: $officeId, stockItemId: $stockItemId',
+    );
+
     var query = _supabase.from('stock_log').select();
-    
+
     if (officeId != null) {
       query = query.eq('office_id', officeId);
     }
-    
+
     if (stockItemId != null) {
       query = query.eq('stock_item_id', stockItemId);
     }
-    
+
     final response = await query.order('created_at', ascending: false);
 
-    print('Found ${(response as List).length} stock log entries');
-    
-    return (response as List)
-        .map((log) => StockLogModel.fromJson(log))
-        .toList();
+    print('Found ${response.length} stock log entries');
+
+    // Explicitly cast to List<Map<String, dynamic>> and then map to StockLogModel
+    final List<Map<String, dynamic>> stockLogData = List<Map<String, dynamic>>.from(response);
+    return stockLogData.map((log) => StockLogModel.fromJson(log)).toList();
   }
 
   // Update stock item details
@@ -175,11 +201,13 @@ class StockService {
           .single();
 
       final stockItem = StockItemModel.fromJson(currentItem);
-      
+
       // Log the deletion if there was stock
       if (stockItem.currentStock > 0) {
-        print('Logging stock deletion: ${stockItem.currentStock} for item ${stockItem.id}');
-        
+        print(
+          'Logging stock deletion: ${stockItem.currentStock} for item ${stockItem.id}',
+        );
+
         await _supabase.from('stock_log').insert({
           'stock_item_id': stockItem.id,
           'action_type': 'delete',
@@ -192,13 +220,10 @@ class StockService {
           'created_at': DateTime.now().toIso8601String(),
         });
       }
-      
+
       // Delete the stock item
-      await _supabase
-          .from('stock_items')
-          .delete()
-          .eq('id', id);
-          
+      await _supabase.from('stock_items').delete().eq('id', id);
+
       print('Stock item deleted successfully: $id');
       return true;
     } catch (e) {

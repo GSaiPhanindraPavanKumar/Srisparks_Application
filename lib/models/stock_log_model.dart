@@ -31,16 +31,18 @@ class StockLogModel {
       id: json['id'],
       stockItemId: json['stock_item_id'],
       action: json['action_type'] ?? json['action'],
-      quantity: quantityChange is int ? quantityChange.abs() : int.tryParse(quantityChange.toString())?.abs() ?? 0,
+      quantity: quantityChange is int
+          ? quantityChange.abs()
+          : int.tryParse(quantityChange.toString())?.abs() ?? 0,
       previousStock: json['previous_stock'],
       newStock: json['new_stock'],
       reason: json['reason'],
       workId: json['work_id'],
       officeId: json['office_id'],
       userId: json['user_id'],
-      createdAt: json['created_at'] != null 
-        ? DateTime.parse(json['created_at']) 
-        : null,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : null,
     );
   }
 

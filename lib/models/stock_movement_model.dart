@@ -1,8 +1,8 @@
 enum StockMovementType {
-  inbound,    // Stock coming in (purchase, transfer in)
-  outbound,   // Stock going out (usage, transfer out, damage)
+  inbound, // Stock coming in (purchase, transfer in)
+  outbound, // Stock going out (usage, transfer out, damage)
   adjustment, // Manual adjustments
-  transfer,   // Between offices
+  transfer, // Between offices
 }
 
 class StockMovementModel {

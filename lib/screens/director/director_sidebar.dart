@@ -30,7 +30,15 @@ class DirectorSidebar extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.dashboard),
             title: const Text('Dashboard'),
-            onTap: () => Navigator.pop(context),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.director),
+          ),
+          ListTile(
+            leading: const Icon(Icons.business_center),
+            title: const Text('Customer Management'),
+            onTap: () => Navigator.pushNamed(
+              context,
+              AppRoutes.directorUnifiedDashboard,
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.people),
@@ -59,9 +67,21 @@ class DirectorSidebar extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, AppRoutes.verifyWork),
           ),
           ListTile(
-            leading: const Icon(Icons.business),
-            title: const Text('Customers'),
-            onTap: () => Navigator.pushNamed(context, AppRoutes.customers),
+            leading: const Icon(Icons.description),
+            title: const Text('Applications (Legacy)'),
+            onTap: () =>
+                Navigator.pushNamed(context, AppRoutes.customerApplications),
+          ),
+          ListTile(
+            leading: const Icon(Icons.payments),
+            title: const Text('Amount Phase (Legacy)'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.amountPhase),
+          ),
+          ListTile(
+            leading: const Icon(Icons.bug_report),
+            title: const Text('Debug Amount Phase'),
+            onTap: () =>
+                Navigator.pushNamed(context, AppRoutes.debugAmountPhase),
           ),
           ListTile(
             leading: const Icon(Icons.location_city),
@@ -71,7 +91,16 @@ class DirectorSidebar extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.inventory),
             title: const Text('Stock Management'),
-            onTap: () => Navigator.pushNamed(context, AppRoutes.directorStockManagement),
+            onTap: () =>
+                Navigator.pushNamed(context, AppRoutes.directorStockManagement),
+          ),
+          ListTile(
+            leading: const Icon(Icons.access_time),
+            title: const Text('Attendance Management'),
+            onTap: () => Navigator.pushNamed(
+              context,
+              AppRoutes.directorAttendanceManagement,
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.analytics),

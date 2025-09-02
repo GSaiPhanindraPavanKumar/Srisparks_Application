@@ -18,6 +18,15 @@ enum ActivityType {
   stock_transfer,
   login,
   logout,
+  // Application Phase Activities
+  application_submitted,
+  application_approved,
+  application_rejected,
+  application_recommended,
+  application_not_recommended,
+  site_survey_completed,
+  feasibility_updated,
+  phase_updated,
 }
 
 class ActivityLogModel {
@@ -126,6 +135,22 @@ class ActivityLogModel {
         return 'Login';
       case ActivityType.logout:
         return 'Logout';
+      case ActivityType.application_submitted:
+        return 'Application Submitted';
+      case ActivityType.application_approved:
+        return 'Application Approved';
+      case ActivityType.application_rejected:
+        return 'Application Rejected';
+      case ActivityType.application_recommended:
+        return 'Application Recommended';
+      case ActivityType.application_not_recommended:
+        return 'Application Not Recommended';
+      case ActivityType.site_survey_completed:
+        return 'Site Survey Completed';
+      case ActivityType.feasibility_updated:
+        return 'Feasibility Updated';
+      case ActivityType.phase_updated:
+        return 'Phase Updated';
     }
   }
 }

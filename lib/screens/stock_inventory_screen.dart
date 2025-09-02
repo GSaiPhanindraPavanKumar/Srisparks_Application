@@ -18,7 +18,7 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
   final StockService _stockService = StockService();
   final AuthService _authService = AuthService();
   final OfficeService _officeService = OfficeService();
-  
+
   List<StockItemModel> stockItems = [];
   List<StockLogModel> stockLogs = [];
   bool isLoading = true;
@@ -34,37 +34,45 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
 
   Future<void> _loadData() async {
     setState(() => isLoading = true);
-    
+
     try {
       final user = await _authService.getCurrentUser();
-      print('Current user: ${user?.email}, Role: ${user?.role}, Office ID: ${user?.officeId}');
-      
+      print(
+        'Current user: ${user?.email}, Role: ${user?.role}, Office ID: ${user?.officeId}',
+      );
+
       if (user != null) {
         currentUser = user;
-        
+
         // Load available offices for directors
         if (user.role == UserRole.director) {
           availableOffices = await _officeService.getAllOffices();
           print('Loaded ${availableOffices.length} offices for director');
         }
-        
+
         // For users with specific office assignment
         if (user.officeId != null && user.officeId!.isNotEmpty) {
           selectedOfficeId = user.officeId;
           print('Loading stock for office: $selectedOfficeId');
-          
-          final items = await _stockService.getStockItemsByOffice(user.officeId!);
-          final logs = await _stockService.getStockLog(officeId: user.officeId!);
-          
+
+          final items = await _stockService.getStockItemsByOffice(
+            user.officeId!,
+          );
+          final logs = await _stockService.getStockLog(
+            officeId: user.officeId!,
+          );
+
           print('Loaded ${items.length} items and ${logs.length} logs');
-          
+
           setState(() {
             stockItems = items;
             stockLogs = logs;
           });
         } else if (user.role == UserRole.director) {
           // Directors without office assignment - show office selection
-          print('Director without office assignment - showing office selection');
+          print(
+            'Director without office assignment - showing office selection',
+          );
           setState(() {
             stockItems = [];
             stockLogs = [];
@@ -76,11 +84,13 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
             stockItems = [];
             stockLogs = [];
           });
-          
+
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Please contact administrator to assign an office for stock management'),
+                content: Text(
+                  'Please contact administrator to assign an office for stock management',
+                ),
                 duration: Duration(seconds: 3),
               ),
             );
@@ -89,9 +99,9 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
       }
     } catch (e) {
       print('Error loading data: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading data: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
     } finally {
       setState(() => isLoading = false);
     }
@@ -99,16 +109,18 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
 
   Future<void> _loadStockForOffice(String officeId) async {
     setState(() => isLoading = true);
-    
+
     try {
       selectedOfficeId = officeId;
       print('Loading stock for selected office: $officeId');
-      
+
       final items = await _stockService.getStockItemsByOffice(officeId);
       final logs = await _stockService.getStockLog(officeId: officeId);
-      
-      print('Loaded ${items.length} items and ${logs.length} logs for office $officeId');
-      
+
+      print(
+        'Loaded ${items.length} items and ${logs.length} logs for office $officeId',
+      );
+
       setState(() {
         stockItems = items;
         stockLogs = logs;
@@ -165,7 +177,7 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
                   currentStock: int.tryParse(quantityController.text) ?? 0,
                   officeId: selectedOfficeId!,
                 );
-                
+
                 try {
                   await _stockService.createStockItem(newItem);
                   Navigator.pop(context);
@@ -180,7 +192,9 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
                 }
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please ensure you have an office assigned')),
+                  const SnackBar(
+                    content: Text('Please ensure you have an office assigned'),
+                  ),
                 );
               }
             },
@@ -214,7 +228,10 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
                 ),
                 items: const [
                   DropdownMenuItem(value: 'add', child: Text('Add Stock')),
-                  DropdownMenuItem(value: 'decrease', child: Text('Decrease Stock')),
+                  DropdownMenuItem(
+                    value: 'decrease',
+                    child: Text('Decrease Stock'),
+                  ),
                 ],
                 onChanged: (value) {
                   if (value != null) {
@@ -255,17 +272,19 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
                       stockItemId: item.id!,
                       action: selectedAction,
                       quantity: quantity,
-                      reason: reasonController.text.isNotEmpty 
-                          ? reasonController.text 
+                      reason: reasonController.text.isNotEmpty
+                          ? reasonController.text
                           : null,
                     );
-                    
+
                     Navigator.pop(context);
-                    
+
                     if (success) {
                       _loadData();
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Stock updated successfully')),
+                        const SnackBar(
+                          content: Text('Stock updated successfully'),
+                        ),
                       );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -274,9 +293,9 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
                     }
                   } catch (e) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
                   }
                 }
               },
@@ -295,7 +314,8 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
         title: const Text('Stock Management'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         actions: [
-          if (currentUser?.role == UserRole.director && selectedOfficeId != null)
+          if (currentUser?.role == UserRole.director &&
+              selectedOfficeId != null)
             IconButton(
               icon: const Icon(Icons.swap_horiz),
               tooltip: 'Switch Office',
@@ -312,52 +332,59 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Center(
                 child: Text(
-                  currentUser!.role == UserRole.director 
-                    ? (selectedOfficeId != null 
-                        ? () {
-                            final office = availableOffices.firstWhere(
-                              (o) => o.id == selectedOfficeId, 
-                              orElse: () => OfficeModel(id: '', name: 'Unknown', isActive: true, createdAt: DateTime.now())
-                            );
-                            return 'Director: ${office.name}${office.city != null && office.city!.isNotEmpty ? ' - ${office.city}' : ''}';
-                          }()
-                        : 'Director View')
-                    : 'Office: ${selectedOfficeId ?? "Not Assigned"}',
+                  currentUser!.role == UserRole.director
+                      ? (selectedOfficeId != null
+                            ? () {
+                                final office = availableOffices.firstWhere(
+                                  (o) => o.id == selectedOfficeId,
+                                  orElse: () => OfficeModel(
+                                    id: '',
+                                    name: 'Unknown',
+                                    isActive: true,
+                                    createdAt: DateTime.now(),
+                                  ),
+                                );
+                                return 'Director: ${office.name}${office.city != null && office.city!.isNotEmpty ? ' - ${office.city}' : ''}';
+                              }()
+                            : 'Director View')
+                      : 'Office: ${selectedOfficeId ?? "Not Assigned"}',
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
             ),
         ],
       ),
-      body: selectedOfficeId == null 
+      body: selectedOfficeId == null
           ? _buildNoOfficeView()
           : isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : DefaultTabController(
-                  length: 2,
-                  child: Column(
-                    children: [
-                      const TabBar(
-                        tabs: [
-                          Tab(icon: Icon(Icons.inventory_2), text: 'Items'),
-                          Tab(icon: Icon(Icons.history), text: 'History'),
-                        ],
-                      ),
-                      Expanded(
-                        child: TabBarView(
-                          children: [
-                            _buildStockItemsTab(),
-                            _buildStockHistoryTab(),
-                          ],
-                        ),
-                      ),
+          ? const Center(child: CircularProgressIndicator())
+          : DefaultTabController(
+              length: 2,
+              child: Column(
+                children: [
+                  const TabBar(
+                    tabs: [
+                      Tab(icon: Icon(Icons.inventory_2), text: 'Items'),
+                      Tab(icon: Icon(Icons.history), text: 'History'),
                     ],
                   ),
-                ),
-      floatingActionButton: selectedOfficeId != null ? FloatingActionButton(
-        onPressed: _showAddItemDialog,
-        child: const Icon(Icons.add),
-      ) : null,
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildStockItemsTab(),
+                        _buildStockHistoryTab(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+      floatingActionButton: selectedOfficeId != null
+          ? FloatingActionButton(
+              onPressed: _showAddItemDialog,
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 
@@ -368,11 +395,7 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.business,
-              size: 64,
-              color: Colors.blue,
-            ),
+            const Icon(Icons.business, size: 64, color: Colors.blue),
             const SizedBox(height: 16),
             const Text(
               'Select Office',
@@ -397,7 +420,9 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
                     child: ListTile(
                       leading: const Icon(Icons.business_center),
                       title: Text(office.name),
-                      subtitle: Text(office.address ?? office.city ?? 'No address'),
+                      subtitle: Text(
+                        office.address ?? office.city ?? 'No address',
+                      ),
                       trailing: const Icon(Icons.arrow_forward_ios),
                       onTap: () => _loadStockForOffice(office.id),
                     ),
@@ -409,17 +434,13 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
         ),
       );
     }
-    
+
     // For other users without office assignment
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.business_outlined,
-            size: 64,
-            color: Colors.grey,
-          ),
+          const Icon(Icons.business_outlined, size: 64, color: Colors.grey),
           const SizedBox(height: 16),
           const Text(
             'No Office Assigned',
@@ -436,7 +457,9 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Please contact your administrator to assign you to an office'),
+                  content: Text(
+                    'Please contact your administrator to assign you to an office',
+                  ),
                 ),
               );
             },
@@ -473,13 +496,13 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: item.currentStock > 0 
-                    ? Colors.green.shade100 
+                backgroundColor: item.currentStock > 0
+                    ? Colors.green.shade100
                     : Colors.red.shade100,
                 child: Icon(
                   Icons.inventory_2,
-                  color: item.currentStock > 0 
-                      ? Colors.green.shade700 
+                  color: item.currentStock > 0
+                      ? Colors.green.shade700
                       : Colors.red.shade700,
                 ),
               ),
@@ -502,7 +525,9 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
                         context: context,
                         builder: (context) => AlertDialog(
                           title: const Text('Delete Item'),
-                          content: Text('Are you sure you want to delete ${item.name}?'),
+                          content: Text(
+                            'Are you sure you want to delete ${item.name}?',
+                          ),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(context, false),
@@ -562,18 +587,18 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
         itemBuilder: (context, index) {
           final log = stockLogs[index];
           final isIncrease = log.action == 'add';
-          
+
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: isIncrease 
-                    ? Colors.green.shade100 
+                backgroundColor: isIncrease
+                    ? Colors.green.shade100
                     : Colors.orange.shade100,
                 child: Icon(
                   isIncrease ? Icons.add : Icons.remove,
-                  color: isIncrease 
-                      ? Colors.green.shade700 
+                  color: isIncrease
+                      ? Colors.green.shade700
                       : Colors.orange.shade700,
                 ),
               ),
@@ -590,7 +615,7 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
                   Text('Stock: ${log.previousStock} → ${log.newStock}'),
                   if (log.reason != null) Text('Reason: ${log.reason}'),
                   Text(
-                    log.createdAt != null 
+                    log.createdAt != null
                         ? log.createdAt!.toLocal().toString().split('.')[0]
                         : 'Unknown time',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),

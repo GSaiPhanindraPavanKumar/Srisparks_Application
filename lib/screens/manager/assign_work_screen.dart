@@ -116,6 +116,8 @@ class _AssignWorkScreenState extends State<AssignWorkScreen> {
         return 'As a Director, you can assign work to Managers, Leads, and Employees';
       case UserRole.manager:
         return 'As a Manager, you can assign work to Leads and Employees';
+      case UserRole.lead:
+        return 'As a Lead, you can assign work to Employees only';
       case UserRole.employee:
         if (_currentUser!.isLead) {
           return 'As a Lead, you can assign work to Employees only';

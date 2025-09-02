@@ -22,7 +22,7 @@ class _StockInventoryScreenState extends State<StockInventoryScreen>
   bool _isLoading = true;
   String _searchQuery = '';
   UserModel? _currentUser;
-  
+
   late TabController _tabController;
 
   @override
@@ -45,10 +45,14 @@ class _StockInventoryScreenState extends State<StockInventoryScreen>
 
     try {
       _currentUser = await _authService.getCurrentUser();
-      
+
       if (_currentUser != null && _currentUser!.officeId != null) {
-        _stockItems = await _stockService.getStockItemsByOffice(_currentUser!.officeId!);
-        _stockLogs = await _stockService.getStockLog(officeId: _currentUser!.officeId!);
+        _stockItems = await _stockService.getStockItemsByOffice(
+          _currentUser!.officeId!,
+        );
+        _stockLogs = await _stockService.getStockLog(
+          officeId: _currentUser!.officeId!,
+        );
       }
     } catch (e) {
       _showMessage('Error loading data: $e');
@@ -64,15 +68,17 @@ class _StockInventoryScreenState extends State<StockInventoryScreen>
       return _stockItems;
     }
     return _stockItems
-        .where((item) =>
-            item.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .where(
+          (item) =>
+              item.name.toLowerCase().contains(_searchQuery.toLowerCase()),
+        )
         .toList();
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _showAddItemDialog() async {
@@ -168,7 +174,10 @@ class _StockInventoryScreenState extends State<StockInventoryScreen>
                 ),
                 items: const [
                   DropdownMenuItem(value: 'add', child: Text('Add Stock')),
-                  DropdownMenuItem(value: 'decrease', child: Text('Decrease Stock')),
+                  DropdownMenuItem(
+                    value: 'decrease',
+                    child: Text('Decrease Stock'),
+                  ),
                 ],
                 onChanged: (value) {
                   setDialogState(() {
@@ -210,9 +219,9 @@ class _StockInventoryScreenState extends State<StockInventoryScreen>
                 Navigator.pop(context, {
                   'action': selectedAction,
                   'quantity': quantity,
-                  'reason': reasonController.text.trim().isEmpty 
-                    ? null 
-                    : reasonController.text.trim(),
+                  'reason': reasonController.text.trim().isEmpty
+                      ? null
+                      : reasonController.text.trim(),
                 });
               },
               child: const Text('Update'),
@@ -274,79 +283,86 @@ class _StockInventoryScreenState extends State<StockInventoryScreen>
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _filteredItems.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No stock items found.\nTap + to add your first item.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 16),
+              ? const Center(
+                  child: Text(
+                    'No stock items found.\nTap + to add your first item.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _filteredItems.length,
+                  itemBuilder: (context, index) {
+                    final item = _filteredItems[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
                       ),
-                    )
-                  : ListView.builder(
-                      itemCount: _filteredItems.length,
-                      itemBuilder: (context, index) {
-                        final item = _filteredItems[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 4,
-                          ),
-                          child: ListTile(
-                            title: Text(
-                              item.name,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                      child: ListTile(
+                        title: Text(
+                          item.name,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text('Stock: ${item.currentStock}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              onPressed: () => _showUpdateStockDialog(item),
                             ),
-                            subtitle: Text('Stock: ${item.currentStock}'),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.edit),
-                                  onPressed: () => _showUpdateStockDialog(item),
+                            if (item.id != null)
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
                                 ),
-                                if (item.id != null)
-                                  IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () async {
-                                      final confirm = await showDialog<bool>(
-                                        context: context,
-                                        builder: (context) => AlertDialog(
-                                          title: const Text('Delete Item'),
-                                          content: Text(
-                                            'Are you sure you want to delete "${item.name}"?',
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(context, false),
-                                              child: const Text('Cancel'),
-                                            ),
-                                            ElevatedButton(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.red,
-                                              ),
-                                              onPressed: () => Navigator.pop(context, true),
-                                              child: const Text('Delete'),
-                                            ),
-                                          ],
+                                onPressed: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Delete Item'),
+                                      content: Text(
+                                        'Are you sure you want to delete "${item.name}"?',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text('Cancel'),
                                         ),
-                                      );
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                          ),
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          child: const Text('Delete'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
 
-                                      if (confirm == true) {
-                                        try {
-                                          await _stockService.deleteStockItem(item.id!);
-                                          await _loadData();
-                                          _showMessage('Item deleted successfully');
-                                        } catch (e) {
-                                          _showMessage('Error deleting item: $e');
-                                        }
-                                      }
-                                    },
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                                  if (confirm == true) {
+                                    try {
+                                      await _stockService.deleteStockItem(
+                                        item.id!,
+                                      );
+                                      await _loadData();
+                                      _showMessage('Item deleted successfully');
+                                    } catch (e) {
+                                      _showMessage('Error deleting item: $e');
+                                    }
+                                  }
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -356,56 +372,56 @@ class _StockInventoryScreenState extends State<StockInventoryScreen>
     return _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _stockLogs.isEmpty
-            ? const Center(
-                child: Text(
-                  'No stock history found.',
-                  style: TextStyle(fontSize: 16),
+        ? const Center(
+            child: Text(
+              'No stock history found.',
+              style: TextStyle(fontSize: 16),
+            ),
+          )
+        : ListView.builder(
+            itemCount: _stockLogs.length,
+            itemBuilder: (context, index) {
+              final log = _stockLogs[index];
+              final item = _stockItems.firstWhere(
+                (item) => item.id == log.stockItemId,
+                orElse: () => StockItemModel(
+                  name: 'Unknown Item',
+                  currentStock: 0,
+                  officeId: '',
                 ),
-              )
-            : ListView.builder(
-                itemCount: _stockLogs.length,
-                itemBuilder: (context, index) {
-                  final log = _stockLogs[index];
-                  final item = _stockItems.firstWhere(
-                    (item) => item.id == log.stockItemId,
-                    orElse: () => StockItemModel(
-                      name: 'Unknown Item',
-                      currentStock: 0,
-                      officeId: '',
-                    ),
-                  );
-
-                  return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: _getLogActionColor(log.action),
-                        child: Icon(
-                          _getLogActionIcon(log.action),
-                          color: Colors.white,
-                        ),
-                      ),
-                      title: Text(item.name),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${log.action.toUpperCase()}: ${log.quantity} (${log.previousStock} → ${log.newStock})',
-                          ),
-                          if (log.reason?.isNotEmpty == true)
-                            Text('Reason: ${log.reason}'),
-                          if (log.createdAt != null)
-                            Text(
-                              'Date: ${log.createdAt!.day}/${log.createdAt!.month}/${log.createdAt!.year} ${log.createdAt!.hour}:${log.createdAt!.minute.toString().padLeft(2, '0')}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                        ],
-                      ),
-                      isThreeLine: true,
-                    ),
-                  );
-                },
               );
+
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: _getLogActionColor(log.action),
+                    child: Icon(
+                      _getLogActionIcon(log.action),
+                      color: Colors.white,
+                    ),
+                  ),
+                  title: Text(item.name),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${log.action.toUpperCase()}: ${log.quantity} (${log.previousStock} → ${log.newStock})',
+                      ),
+                      if (log.reason?.isNotEmpty == true)
+                        Text('Reason: ${log.reason}'),
+                      if (log.createdAt != null)
+                        Text(
+                          'Date: ${log.createdAt!.day}/${log.createdAt!.month}/${log.createdAt!.year} ${log.createdAt!.hour}:${log.createdAt!.minute.toString().padLeft(2, '0')}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                    ],
+                  ),
+                  isThreeLine: true,
+                ),
+              );
+            },
+          );
   }
 
   // Helper method to get the color for log actions
@@ -449,18 +465,12 @@ class _StockInventoryScreenState extends State<StockInventoryScreen>
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
         ],
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildItemsTab(),
-          _buildHistoryTab(),
-        ],
+        children: [_buildItemsTab(), _buildHistoryTab()],
       ),
     );
   }

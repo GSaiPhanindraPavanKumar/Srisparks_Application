@@ -55,7 +55,7 @@ CREATE TABLE offices (
 ```
 
 ### 3. Customers Table
-Stores customer information.
+Stores customer information and solar installation project lifecycle.
 
 ```sql
 CREATE TABLE customers (
@@ -74,6 +74,72 @@ CREATE TABLE customers (
   added_by_id UUID NOT NULL REFERENCES users(id),
   latitude DECIMAL(10,8),
   longitude DECIMAL(11,8),
+  
+  -- Project Phase Tracking
+  current_phase TEXT DEFAULT 'application' CHECK (current_phase IN (
+    'application', 'amount', 'material_allocation', 'material_delivery', 
+    'installation', 'documentation', 'meter_connection', 
+    'inverter_turnon', 'completed', 'service_phase'
+  )),
+  
+  -- 1. APPLICATION PHASE
+  application_date TIMESTAMPTZ DEFAULT NOW(),
+  application_details JSONB, -- Site survey data, requirements, customer preferences
+  application_status TEXT DEFAULT 'pending' CHECK (application_status IN ('pending', 'approved', 'rejected')),
+  application_approved_by_id UUID REFERENCES users(id),
+  application_approval_date TIMESTAMPTZ,
+  application_notes TEXT,
+  
+  -- Manager Recommendation Fields
+  manager_recommendation TEXT CHECK (manager_recommendation IN ('approve', 'reject')),
+  manager_recommended_by_id UUID REFERENCES users(id),
+  manager_recommendation_date TIMESTAMPTZ,
+  manager_recommendation_comment TEXT,
+  
+  -- Site Survey Status (Controls approval workflow)
+  -- Survey Pending: site_survey_completed = FALSE AND site_survey_technician_id = NULL
+  -- Survey Ongoing: site_survey_completed = FALSE AND site_survey_technician_id != NULL  
+  -- Survey Completed: site_survey_completed = TRUE
+  -- Note: Applications cannot be approved/rejected while survey is pending
+  -- Complete Survey: Anyone can complete pending surveys using "Complete Site Survey" button
+  --   - Captures survey date and optional survey details
+  --   - All survey fields are optional: notes, roof type, area, shading, electrical capacity, system type
+  --   - Automatically assigns current user as technician and marks as completed
+  --   - Updates application_details with provided survey information
+  --   - Enables approval workflow after completion
+  -- Survey Data Handling:
+  --   - When status is "pending": No detailed survey data is saved to application_details
+  --   - When status is "ongoing" or "completed": Detailed survey data (roof type, area, etc.) is saved
+  --   - This prevents incomplete/placeholder data from being stored when survey hasn't started
+  site_survey_completed BOOLEAN DEFAULT FALSE,
+  site_survey_date TIMESTAMPTZ,
+  site_survey_technician_id UUID REFERENCES users(id), -- Assigned when survey starts or completes
+  site_survey_photos JSONB, -- Photos from site survey
+  estimated_kw INTEGER, -- Estimated system capacity
+  estimated_cost DECIMAL(12,2), -- Estimated project cost
+  feasibility_status TEXT DEFAULT 'pending' CHECK (feasibility_status IN ('pending', 'feasible', 'not_feasible')),
+  
+  -- Equipment Serial Numbers (will be populated in later phases)
+  solar_panels_serial_numbers TEXT, -- String of comma-separated serial numbers
+  inverter_serial_numbers TEXT, -- String of comma-separated serial numbers
+  electric_meter_service_number TEXT NOT NULL, -- Electric meter service number (mandatory field for all applications)
+  
+  -- 2. AMOUNT PHASE (Only accessible after application approval)
+  -- Amount phase can only be cleared by director or manager
+  -- Captures final kW capacity and payment details
+  amount_kw INTEGER, -- Final confirmed kW capacity (stored in existing kw column for compatibility)
+  amount_total DECIMAL(12,2), -- Total project amount in Rs
+  amount_paid DECIMAL(12,2), -- Amount actually paid in Rs
+  amount_paid_date TIMESTAMPTZ, -- Date when payment was made
+  amount_utr_number TEXT, -- UTR/transaction reference number
+  amount_payment_status TEXT DEFAULT 'pending' CHECK (amount_payment_status IN ('pending', 'partial', 'completed')),
+  amount_cleared_by_id UUID REFERENCES users(id), -- Director/Manager who cleared the amount phase
+  amount_cleared_date TIMESTAMPTZ, -- Date when amount phase was cleared
+  amount_notes TEXT, -- Additional notes about payment/amount
+  
+  -- Note: To make electric_meter_service_number mandatory in existing database, run:
+  -- ALTER TABLE customers ALTER COLUMN electric_meter_service_number SET NOT NULL;
+  
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   metadata JSONB
@@ -395,6 +461,16 @@ CREATE INDEX idx_activity_logs_created_at ON activity_logs(created_at);
 CREATE INDEX idx_customers_office_id ON customers(office_id);
 CREATE INDEX idx_customers_is_active ON customers(is_active);
 CREATE INDEX idx_customers_email ON customers(email);
+CREATE INDEX idx_customers_current_phase ON customers(current_phase);
+CREATE INDEX idx_customers_application_status ON customers(application_status);
+CREATE INDEX idx_customers_feasibility_status ON customers(feasibility_status);
+CREATE INDEX idx_customers_added_by_id ON customers(added_by_id);
+CREATE INDEX idx_customers_application_approved_by_id ON customers(application_approved_by_id);
+CREATE INDEX idx_customers_site_survey_technician_id ON customers(site_survey_technician_id);
+CREATE INDEX idx_customers_electric_meter_service_number ON customers(electric_meter_service_number);
+CREATE INDEX idx_customers_amount_payment_status ON customers(amount_payment_status);
+CREATE INDEX idx_customers_amount_cleared_by_id ON customers(amount_cleared_by_id);
+CREATE INDEX idx_customers_amount_cleared_date ON customers(amount_cleared_date);
 ```
 
 ## Sample Data
@@ -412,13 +488,60 @@ INSERT INTO users (id, email, full_name, role, office_id) VALUES
 INSERT INTO users (id, email, full_name, role, office_id, reporting_to_id) VALUES
 ('550e8400-e29b-41d4-a716-446655440002', 'manager@srisparks.com', 'Jane Manager', 'manager', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440001');
 
--- Insert sample customer with GPS coordinates
-INSERT INTO customers (id, name, email, company_name, office_id, latitude, longitude) VALUES
-('550e8400-e29b-41d4-a716-446655440003', 'ABC Corp', 'contact@abccorp.com', 'ABC Corporation', '550e8400-e29b-41d4-a716-446655440000', 16.746794, 81.7022911);
+-- Insert sample customer in Application Phase
+INSERT INTO customers (
+  id, name, email, phone_number, address, city, state, country, 
+  office_id, added_by_id, latitude, longitude, 
+  current_phase, application_status, estimated_kw, estimated_cost, 
+  application_details
+) VALUES (
+  '550e8400-e29b-41d4-a716-446655440003', 
+  'ABC Corp', 
+  'contact@abccorp.com', 
+  '+91-9876543210',
+  '123 Industrial Area, Sector 5',
+  'Vijayawada', 
+  'Andhra Pradesh', 
+  'India',
+  '550e8400-e29b-41d4-a716-446655440000', 
+  '550e8400-e29b-41d4-a716-446655440002',
+  16.746794, 
+  81.7022911,
+  'application',
+  'pending',
+  100,
+  850000.00,
+  '{"roof_type": "concrete", "roof_area": "2000_sqft", "shading_issues": "minimal", "electrical_capacity": "adequate", "customer_requirements": "grid_tie_system"}'
+);
 
--- Insert another sample customer with different location
-INSERT INTO customers (id, name, email, company_name, office_id, latitude, longitude) VALUES
-('550e8400-e29b-41d4-a716-446655440004', 'XYZ Company', 'info@xyzcompany.com', 'XYZ Private Limited', '550e8400-e29b-41d4-a716-446655440000', 16.750000, 81.705000);
+-- Insert another sample customer with approved application
+INSERT INTO customers (
+  id, name, email, phone_number, address, city, state, country,
+  office_id, added_by_id, latitude, longitude,
+  current_phase, application_status, feasibility_status, estimated_kw, estimated_cost,
+  site_survey_completed, application_approved_by_id, application_approval_date
+) VALUES (
+  '550e8400-e29b-41d4-a716-446655440004', 
+  'XYZ Company', 
+  'info@xyzcompany.com', 
+  '+91-9876543211',
+  '456 Tech Park, Phase 2',
+  'Vijayawada', 
+  'Andhra Pradesh', 
+  'India',
+  '550e8400-e29b-41d4-a716-446655440000', 
+  '550e8400-e29b-41d4-a716-446655440002',
+  16.750000, 
+  81.705000,
+  'application',
+  'approved',
+  'feasible',
+  50,
+  425000.00,
+  TRUE,
+  '550e8400-e29b-41d4-a716-446655440001',
+  '2024-08-10T14:30:00Z'
+);
 ```
 
 This schema provides a solid foundation for the Srisparks Workforce Management App with proper security, relationships, and performance optimizations.

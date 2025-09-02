@@ -11,15 +11,17 @@ class DirectorStockManagementScreen extends StatefulWidget {
   const DirectorStockManagementScreen({super.key});
 
   @override
-  State<DirectorStockManagementScreen> createState() => _DirectorStockManagementScreenState();
+  State<DirectorStockManagementScreen> createState() =>
+      _DirectorStockManagementScreenState();
 }
 
-class _DirectorStockManagementScreenState extends State<DirectorStockManagementScreen>
+class _DirectorStockManagementScreenState
+    extends State<DirectorStockManagementScreen>
     with SingleTickerProviderStateMixin {
   final StockService _stockService = StockService();
   final AuthService _authService = AuthService();
   final OfficeService _officeService = OfficeService();
-  
+
   List<StockItemModel> stockItems = [];
   List<StockLogModel> stockLogs = [];
   List<OfficeModel> availableOffices = [];
@@ -27,7 +29,7 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
   UserModel? currentUser;
   String? selectedOfficeId;
   OfficeModel? selectedOffice;
-  
+
   late TabController _tabController;
 
   @override
@@ -45,18 +47,18 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
 
   Future<void> _loadInitialData() async {
     setState(() => isLoading = true);
-    
+
     try {
       final user = await _authService.getCurrentUser();
       print('Director user: ${user?.email}, Role: ${user?.role}');
-      
+
       if (user != null) {
         currentUser = user;
-        
+
         // Load all available offices for director
         availableOffices = await _officeService.getAllOffices();
         print('Loaded ${availableOffices.length} offices for director');
-        
+
         setState(() {
           stockItems = [];
           stockLogs = [];
@@ -64,9 +66,9 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
       }
     } catch (e) {
       print('Error loading initial data: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading data: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
     } finally {
       setState(() => isLoading = false);
     }
@@ -74,18 +76,24 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
 
   Future<void> _loadStockForOffice(String officeId) async {
     setState(() => isLoading = true);
-    
+
     try {
       selectedOfficeId = officeId;
-      selectedOffice = availableOffices.firstWhere((office) => office.id == officeId);
-      
-      print('Loading stock for selected office: $officeId (${selectedOffice?.name})');
-      
+      selectedOffice = availableOffices.firstWhere(
+        (office) => office.id == officeId,
+      );
+
+      print(
+        'Loading stock for selected office: $officeId (${selectedOffice?.name})',
+      );
+
       final items = await _stockService.getStockItemsByOffice(officeId);
       final logs = await _stockService.getStockLog(officeId: officeId);
-      
-      print('Loaded ${items.length} items and ${logs.length} logs for office $officeId');
-      
+
+      print(
+        'Loaded ${items.length} items and ${logs.length} logs for office $officeId',
+      );
+
       setState(() {
         stockItems = items;
         stockLogs = logs;
@@ -114,7 +122,9 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Add New Item to ${selectedOffice?.name ?? 'Selected Office'}'),
+        title: Text(
+          'Add New Item to ${selectedOffice?.name ?? 'Selected Office'}',
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -164,17 +174,17 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
           currentStock: result['quantity'],
           officeId: selectedOfficeId!,
         );
-        
+
         await _stockService.createStockItem(newItem);
         await _loadStockForOffice(selectedOfficeId!);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Item added successfully')),
         );
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating item: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error creating item: $e')));
       }
     }
   }
@@ -205,7 +215,10 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
                 ),
                 items: const [
                   DropdownMenuItem(value: 'add', child: Text('Add Stock')),
-                  DropdownMenuItem(value: 'decrease', child: Text('Decrease Stock')),
+                  DropdownMenuItem(
+                    value: 'decrease',
+                    child: Text('Decrease Stock'),
+                  ),
                 ],
                 onChanged: (value) {
                   setDialogState(() {
@@ -247,9 +260,9 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
                 Navigator.pop(context, {
                   'action': selectedAction,
                   'quantity': quantity,
-                  'reason': reasonController.text.trim().isEmpty 
-                    ? null 
-                    : reasonController.text.trim(),
+                  'reason': reasonController.text.trim().isEmpty
+                      ? null
+                      : reasonController.text.trim(),
                 });
               },
               child: const Text('Update'),
@@ -268,14 +281,14 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
           reason: result['reason'],
         );
         await _loadStockForOffice(selectedOfficeId!);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Stock updated successfully')),
         );
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating stock: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error updating stock: $e')));
       }
     }
   }
@@ -293,7 +306,10 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
               decoration: const InputDecoration(
                 labelText: 'Select Office',
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
               ),
               hint: const Text('Choose an office to manage'),
               items: availableOffices.map((office) {
@@ -353,7 +369,11 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
+            const Icon(
+              Icons.inventory_2_outlined,
+              size: 64,
+              color: Colors.grey,
+            ),
             const SizedBox(height: 16),
             Text(
               'No stock items in ${selectedOffice?.name}',
@@ -378,13 +398,13 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
           margin: const EdgeInsets.symmetric(vertical: 4),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: item.currentStock > 0 
-                  ? Colors.green.shade100 
+              backgroundColor: item.currentStock > 0
+                  ? Colors.green.shade100
                   : Colors.red.shade100,
               child: Icon(
                 Icons.inventory_2,
-                color: item.currentStock > 0 
-                    ? Colors.green.shade700 
+                color: item.currentStock > 0
+                    ? Colors.green.shade700
                     : Colors.red.shade700,
               ),
             ),
@@ -430,9 +450,11 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
                       try {
                         await _stockService.deleteStockItem(item.id!);
                         await _loadStockForOffice(selectedOfficeId!);
-                        
+
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Item deleted successfully')),
+                          const SnackBar(
+                            content: Text('Item deleted successfully'),
+                          ),
                         );
                       } catch (e) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -507,7 +529,7 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
         IconData iconData;
         Color backgroundColor;
         Color iconColor;
-        
+
         switch (log.action) {
           case 'add':
             iconData = Icons.add;
@@ -564,20 +586,22 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: selectedOffice != null 
-          ? Text(
-              'Stock: ${selectedOffice!.name}${selectedOffice!.city != null && selectedOffice!.city!.isNotEmpty ? ' - ${selectedOffice!.city}' : ''}',
-              style: const TextStyle(fontSize: 16),
-            )
-          : const Text('Director - Stock Management'),
+        title: selectedOffice != null
+            ? Text(
+                'Stock: ${selectedOffice!.name}${selectedOffice!.city != null && selectedOffice!.city!.isNotEmpty ? ' - ${selectedOffice!.city}' : ''}',
+                style: const TextStyle(fontSize: 16),
+              )
+            : const Text('Director - Stock Management'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-        bottom: selectedOfficeId != null ? TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.inventory), text: 'Items'),
-            Tab(icon: Icon(Icons.history), text: 'History'),
-          ],
-        ) : null,
+        bottom: selectedOfficeId != null
+            ? TabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(icon: Icon(Icons.inventory), text: 'Items'),
+                  Tab(icon: Icon(Icons.history), text: 'History'),
+                ],
+              )
+            : null,
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -588,10 +612,7 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
                   Expanded(
                     child: TabBarView(
                       controller: _tabController,
-                      children: [
-                        _buildStockItemsTab(),
-                        _buildHistoryTab(),
-                      ],
+                      children: [_buildStockItemsTab(), _buildHistoryTab()],
                     ),
                   )
                 else
@@ -600,11 +621,7 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            Icons.business,
-                            size: 100,
-                            color: Colors.blue,
-                          ),
+                          Icon(Icons.business, size: 100, color: Colors.blue),
                           SizedBox(height: 24),
                           Text(
                             'Welcome Director!',
@@ -617,10 +634,7 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
                           Text(
                             'Select an office from the dropdown above to manage its stock',
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey,
-                            ),
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
                           ),
                         ],
                       ),
@@ -628,10 +642,12 @@ class _DirectorStockManagementScreenState extends State<DirectorStockManagementS
                   ),
               ],
             ),
-      floatingActionButton: selectedOfficeId != null ? FloatingActionButton(
-        onPressed: _showAddItemDialog,
-        child: const Icon(Icons.add),
-      ) : null,
+      floatingActionButton: selectedOfficeId != null
+          ? FloatingActionButton(
+              onPressed: _showAddItemDialog,
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 }

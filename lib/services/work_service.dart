@@ -1,14 +1,11 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/work_model.dart';
 import '../models/activity_log_model.dart';
-import '../models/customer_model.dart';
 import '../services/location_service.dart';
-import '../services/customer_service.dart';
 
 class WorkService {
   final SupabaseClient _supabase = Supabase.instance.client;
   final LocationService _locationService = LocationService();
-  final CustomerService _customerService = CustomerService();
 
   // Get work assigned to current user
   Future<List<WorkModel>> getMyWork() async {

@@ -3,6 +3,7 @@ import '../models/user_model.dart';
 import '../models/activity_log_model.dart';
 import '../services/user_service.dart';
 import '../services/biometric_service.dart';
+import '../config/app_router.dart';
 
 class AuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -287,15 +288,15 @@ class AuthService {
   // Check if user can access a specific route based on role
   bool canAccessRoute(String route, UserModel user) {
     switch (route) {
-      case '/director':
+      case AppRoutes.director:
         return user.role == UserRole.director;
-      case '/manager':
+      case AppRoutes.manager:
         return user.role == UserRole.manager || user.role == UserRole.director;
-      case '/lead':
+      case AppRoutes.lead:
         return user.isLead ||
             user.role == UserRole.manager ||
             user.role == UserRole.director;
-      case '/employee':
+      case AppRoutes.employee:
         return true; // All authenticated users can access employee routes
       default:
         return true;
@@ -306,11 +307,13 @@ class AuthService {
   String getRedirectRoute(UserModel user) {
     switch (user.role) {
       case UserRole.director:
-        return '/director';
+        return AppRoutes.director;
       case UserRole.manager:
-        return '/manager';
+        return AppRoutes.manager;
+      case UserRole.lead:
+        return AppRoutes.lead;
       case UserRole.employee:
-        return user.isLead ? '/lead' : '/employee';
+        return user.isLead ? AppRoutes.lead : AppRoutes.employee;
     }
   }
 

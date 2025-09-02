@@ -30,32 +30,44 @@ class ManagerSidebar extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.dashboard),
             title: const Text('Dashboard'),
-            onTap: () => Navigator.pop(context),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.manager),
+          ),
+          ListTile(
+            leading: const Icon(Icons.business_center),
+            title: const Text('Customer Management'),
+            onTap: () =>
+                Navigator.pushNamed(context, AppRoutes.managerUnifiedDashboard),
           ),
           ListTile(
             leading: const Icon(Icons.assignment),
             title: const Text('Assign Work'),
-            onTap: () => Navigator.pushNamed(context, '/assign-work'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.assignWork),
           ),
           ListTile(
             leading: const Icon(Icons.work),
             title: const Text('Manage Work'),
-            onTap: () => Navigator.pushNamed(context, '/manage-work'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.manageWork),
           ),
           ListTile(
             leading: const Icon(Icons.group),
             title: const Text('My Team'),
-            onTap: () => Navigator.pushNamed(context, '/my-team'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.myTeam),
           ),
           ListTile(
             leading: const Icon(Icons.verified),
             title: const Text('Verify Work'),
-            onTap: () => Navigator.pushNamed(context, '/verify-work'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.verifyWork),
           ),
           ListTile(
-            leading: const Icon(Icons.business),
-            title: const Text('Customers'),
-            onTap: () => Navigator.pushNamed(context, '/customers'),
+            leading: const Icon(Icons.description),
+            title: const Text('Applications (Legacy)'),
+            onTap: () =>
+                Navigator.pushNamed(context, AppRoutes.customerApplications),
+          ),
+          ListTile(
+            leading: const Icon(Icons.payments),
+            title: const Text('Amount Phase (Legacy)'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.amountPhase),
           ),
           ListTile(
             leading: const Icon(Icons.inventory),
@@ -63,9 +75,14 @@ class ManagerSidebar extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, AppRoutes.stockInventory),
           ),
           ListTile(
+            leading: const Icon(Icons.access_time),
+            title: const Text('Attendance'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.attendance),
+          ),
+          ListTile(
             leading: const Icon(Icons.analytics),
             title: const Text('Reports'),
-            onTap: () => Navigator.pushNamed(context, '/reports'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.reports),
           ),
           const Divider(),
           ListTile(

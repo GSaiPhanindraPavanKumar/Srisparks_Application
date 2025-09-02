@@ -1,4 +1,4 @@
-enum UserRole { director, manager, employee }
+enum UserRole { director, manager, lead, employee }
 
 extension UserRoleExtension on UserRole {
   String get name {
@@ -7,6 +7,8 @@ extension UserRoleExtension on UserRole {
         return 'director';
       case UserRole.manager:
         return 'manager';
+      case UserRole.lead:
+        return 'lead';
       case UserRole.employee:
         return 'employee';
     }
@@ -18,6 +20,8 @@ extension UserRoleExtension on UserRole {
         return 'Director';
       case UserRole.manager:
         return 'Manager';
+      case UserRole.lead:
+        return 'Lead';
       case UserRole.employee:
         return 'Employee';
     }

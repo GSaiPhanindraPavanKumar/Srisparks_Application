@@ -19,6 +19,17 @@ import '../screens/shared/my_work_screen.dart';
 import '../screens/manager/manage_work_screen.dart';
 import '../screens/manager/stock_inventory_screen.dart';
 import '../screens/director/director_stock_management_screen.dart';
+import '../screens/director/director_attendance_management_screen.dart';
+import '../screens/shared/attendance_screen.dart';
+import '../screens/shared/customer_applications_screen.dart';
+import '../screens/shared/create_customer_application_screen.dart';
+import '../screens/shared/amount_phase_screen.dart';
+import '../screens/shared/unified_customer_dashboard.dart';
+import '../screens/director/director_unified_dashboard.dart';
+import '../screens/manager/manager_unified_dashboard.dart';
+import '../screens/lead/lead_unified_dashboard.dart';
+import '../screens/employee/employee_unified_dashboard.dart';
+import '../debug_amount_phase.dart';
 import '../screens/shared/help_screen.dart';
 import '../auth/auth_screen.dart';
 import '../services/auth_service.dart';
@@ -49,6 +60,19 @@ class AppRoutes {
   static const String manageWork = '/manage-work';
   static const String stockInventory = '/stock-inventory';
   static const String directorStockManagement = '/director/stock-management';
+  static const String directorAttendanceManagement =
+      '/director/attendance-management';
+  static const String attendance = '/attendance';
+  static const String customerApplications = '/customer-applications';
+  static const String createCustomerApplication =
+      '/create-customer-application';
+  static const String amountPhase = '/amount-phase';
+  static const String unifiedCustomers = '/unified-customers';
+  static const String directorUnifiedDashboard = '/director-unified-dashboard';
+  static const String managerUnifiedDashboard = '/manager-unified-dashboard';
+  static const String leadUnifiedDashboard = '/lead-unified-dashboard';
+  static const String employeeUnifiedDashboard = '/employee-unified-dashboard';
+  static const String debugAmountPhase = '/debug-amount-phase';
   static const String help = '/help';
 }
 
@@ -245,6 +269,98 @@ class AppRouter {
           settings: settings,
         );
 
+      case AppRoutes.directorAttendanceManagement:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: DirectorAttendanceManagementScreen(),
+            requiredRole: UserRole.director,
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.attendance:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: AttendanceScreen(),
+            // Allow all authenticated users to access attendance
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.customerApplications:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(child: CustomerApplicationsScreen()),
+          settings: settings,
+        );
+
+      case AppRoutes.createCustomerApplication:
+        return MaterialPageRoute(
+          builder: (_) =>
+              const RouteGuard(child: CreateCustomerApplicationScreen()),
+          settings: settings,
+        );
+
+      case AppRoutes.amountPhase:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: AmountPhaseScreen(),
+            requiresManagementRole: true, // Only directors and managers
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.unifiedCustomers:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(child: UnifiedCustomerDashboard()),
+          settings: settings,
+        );
+
+      case AppRoutes.directorUnifiedDashboard:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: DirectorUnifiedDashboard(),
+            requiredRole: UserRole.director,
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.managerUnifiedDashboard:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: ManagerUnifiedDashboard(),
+            requiredRole: UserRole.manager,
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.leadUnifiedDashboard:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: LeadUnifiedDashboard(),
+            requiredRole: UserRole.employee,
+            requiresLead: true,
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.employeeUnifiedDashboard:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: EmployeeUnifiedDashboard(),
+            requiredRole: UserRole.employee,
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.debugAmountPhase:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: DebugAmountPhase(),
+            requiresManagementRole: true, // Only directors and managers
+          ),
+          settings: settings,
+        );
+
       case AppRoutes.help:
         return MaterialPageRoute(
           builder: (_) => const RouteGuard(child: HelpScreen()),
@@ -349,6 +465,8 @@ class RouteGuard extends StatelessWidget {
         return AppRoutes.director;
       case UserRole.manager:
         return AppRoutes.manager;
+      case UserRole.lead:
+        return AppRoutes.lead;
       case UserRole.employee:
         return user.isLead ? AppRoutes.lead : AppRoutes.employee;
     }

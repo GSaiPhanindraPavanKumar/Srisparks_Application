@@ -153,6 +153,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
     final latitudeController = TextEditingController();
     final longitudeController = TextEditingController();
     final kwController = TextEditingController();
+    final serviceNumberController = TextEditingController();
 
     // For directors, allow office selection within the dialog
     String? selectedOfficeId = _selectedOfficeId;
@@ -321,6 +322,15 @@ class _CustomersScreenState extends State<CustomersScreen> {
                     hintText: 'Enter power rating',
                   ),
                 ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: serviceNumberController,
+                  decoration: const InputDecoration(
+                    labelText: 'Service Number',
+                    border: OutlineInputBorder(),
+                    hintText: 'Electric meter service number',
+                  ),
+                ),
               ],
             ),
           ),
@@ -390,7 +400,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                         ? selectedOfficeId!
                         : (selectedOfficeId ?? currentUser.officeId!);
 
-                    await _customerService.createCustomer(
+                    await _customerService.createCustomerLegacy(
                       name: nameController.text.trim(),
                       email: emailController.text.trim().isEmpty
                           ? null
@@ -416,6 +426,10 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       latitude: latitude,
                       longitude: longitude,
                       kw: kw,
+                      electricMeterServiceNumber:
+                          serviceNumberController.text.trim().isEmpty
+                          ? null
+                          : serviceNumberController.text.trim(),
                       officeId: targetOfficeId,
                       addedById: currentUser.id,
                     );
@@ -791,6 +805,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 ),
               if (customer.kw != null)
                 _buildDetailRow('KW Rating', '${customer.kw} KW'),
+              if (customer.electricMeterServiceNumber != null)
+                _buildDetailRow(
+                  'Service Number',
+                  customer.electricMeterServiceNumber!,
+                ),
               _buildDetailRow(
                 'Status',
                 customer.isActive ? 'Active' : 'Inactive',

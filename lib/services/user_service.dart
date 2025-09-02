@@ -71,6 +71,23 @@ class UserService {
     return (response as List).map((user) => UserModel.fromJson(user)).toList();
   }
 
+  // Get manager for a specific office
+  Future<UserModel?> getManagerByOffice(String officeId) async {
+    try {
+      final response = await _supabase
+          .from('users')
+          .select()
+          .eq('office_id', officeId)
+          .eq('role', 'manager')
+          .eq('status', 'active')
+          .maybeSingle();
+
+      return response != null ? UserModel.fromJson(response) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // Get users by role
   Future<List<UserModel>> getUsersByRole(UserRole role) async {
     final response = await _supabase
@@ -331,18 +348,21 @@ class UserService {
 
       switch (currentUser.role) {
         case UserRole.director:
-          // Director can assign to manager, lead (employee with isLead=true), or employee
+          // Director can assign to manager, lead, or employee
           return user.role == UserRole.manager ||
-              user.role ==
-                  UserRole
-                      .employee; // This includes leads since they're employees with isLead=true
+              user.role == UserRole.lead ||
+              user.role == UserRole.employee;
 
         case UserRole.manager:
-          // Manager can assign to lead (employee with isLead=true) or employee
-          return user.role == UserRole.employee; // This includes leads
+          // Manager can assign to lead or employee
+          return user.role == UserRole.lead || user.role == UserRole.employee;
+
+        case UserRole.lead:
+          // Lead can assign to employees only
+          return user.role == UserRole.employee && !user.isLead;
 
         case UserRole.employee:
-          // If current user is a lead, they can assign to employees only
+          // If current user is a lead (legacy), they can assign to employees only
           if (currentUser.isLead) {
             return user.role == UserRole.employee &&
                 !user.isLead; // Only non-lead employees

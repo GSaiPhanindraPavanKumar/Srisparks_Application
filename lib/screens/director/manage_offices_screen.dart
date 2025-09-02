@@ -199,7 +199,9 @@ class _ManageOfficesScreenState extends State<ManageOfficesScreen> {
                   labelText: 'Latitude',
                   border: OutlineInputBorder(),
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -208,7 +210,9 @@ class _ManageOfficesScreenState extends State<ManageOfficesScreen> {
                   labelText: 'Longitude',
                   border: OutlineInputBorder(),
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
             ],
           ),
@@ -346,7 +350,9 @@ class _ManageOfficesScreenState extends State<ManageOfficesScreen> {
                   labelText: 'Latitude',
                   border: OutlineInputBorder(),
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -355,7 +361,9 @@ class _ManageOfficesScreenState extends State<ManageOfficesScreen> {
                   labelText: 'Longitude',
                   border: OutlineInputBorder(),
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
             ],
           ),

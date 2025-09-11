@@ -50,6 +50,7 @@ class SimplifiedMaterialAllocationService {
       final updateData = <String, dynamic>{
         'material_allocation_status': 'allocated',
         'material_allocated_by_id': allocatedById,
+        'material_allocation_date': now.toIso8601String(), // Add allocation date
         'updated_at': now.toIso8601String(),
       };
 
@@ -86,10 +87,9 @@ class SimplifiedMaterialAllocationService {
           .from('customers')
           .update({
             'material_allocation_status': 'confirmed',
-            'material_allocated_by_id': confirmedById,
+            'material_allocated_by_id': confirmedById, // Keep this to track who confirmed
             'material_confirmed_by_id': confirmedById,
             'material_confirmed_date': now.toIso8601String(),
-            'material_allocation_date': now.toIso8601String(),
             'updated_at': now.toIso8601String(),
           })
           .eq('id', customerId)

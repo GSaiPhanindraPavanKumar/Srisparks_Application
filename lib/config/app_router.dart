@@ -29,6 +29,8 @@ import '../screens/director/director_unified_dashboard.dart';
 import '../screens/manager/manager_unified_dashboard.dart';
 import '../screens/lead/lead_unified_dashboard.dart';
 import '../screens/employee/employee_unified_dashboard.dart';
+import '../screens/employee/employee_installation_screen.dart';
+import '../screens/employee/employee_customer_dashboard.dart';
 import '../debug_amount_phase.dart';
 import '../screens/shared/help_screen.dart';
 import '../auth/auth_screen.dart';
@@ -72,6 +74,8 @@ class AppRoutes {
   static const String managerUnifiedDashboard = '/manager-unified-dashboard';
   static const String leadUnifiedDashboard = '/lead-unified-dashboard';
   static const String employeeUnifiedDashboard = '/employee-unified-dashboard';
+  static const String employeeCustomerDashboard = '/employee-customer-dashboard';
+  static const String employeeInstallations = '/employee-installations';
   static const String debugAmountPhase = '/debug-amount-phase';
   static const String help = '/help';
 }
@@ -347,6 +351,24 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (_) => const RouteGuard(
             child: EmployeeUnifiedDashboard(),
+            requiredRole: UserRole.employee,
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.employeeCustomerDashboard:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: EmployeeCustomerDashboard(),
+            requiredRole: UserRole.employee,
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.employeeInstallations:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: EmployeeInstallationScreen(),
             requiredRole: UserRole.employee,
           ),
           settings: settings,

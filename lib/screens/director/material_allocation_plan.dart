@@ -191,13 +191,27 @@ class _MaterialAllocationPlanState extends State<MaterialAllocationPlan> {
     if (_currentUser == null) return const SizedBox();
     
     final userRole = _currentUser!.role.name;
+    final isUserLead = _currentUser!.isLead;
     final status = widget.customer.materialAllocationStatus;
+    
+    // Debug information
+    print('Material Allocation Debug:');
+    print('User Role: $userRole');
+    print('Is Lead: $isUserLead');
+    print('Material Status: $status');
+    print('Role Display Name: ${_currentUser!.roleDisplayName}');
     
     List<Widget> buttons = [];
 
-    // Save as Draft - Available for Lead, Manager, Director when status is pending or planned
-    if (['lead', 'manager', 'director'].contains(userRole) && 
-        ['pending', 'planned'].contains(status)) {
+    // Save as Draft - Available for Lead (including isLead=true employees), Manager, Director when status is pending or planned
+    final hasLeadPermissions = ['lead', 'manager', 'director'].contains(userRole) || 
+        (userRole == 'employee' && isUserLead);
+    final canSaveAsDraft = hasLeadPermissions && ['pending', 'planned'].contains(status);
+    
+    print('Has Lead Permissions: $hasLeadPermissions');
+    print('Can Save as Draft: $canSaveAsDraft');
+    
+    if (canSaveAsDraft) {
       buttons.add(
         ElevatedButton.icon(
           icon: const Icon(Icons.save),
@@ -279,8 +293,12 @@ class _MaterialAllocationPlanState extends State<MaterialAllocationPlan> {
                           const SizedBox(height: 8),
                           Text('Status: ${widget.customer.materialAllocationStatus}'),
                           Text('Office: ${widget.office.name}'),
+                          if (widget.customer.materialPlannedDate != null)
+                            Text('Material Planned: ${widget.customer.materialPlannedDate!.toLocal().toString().split(' ')[0]}'),
+                          if (widget.customer.materialAllocationDate != null)
+                            Text('Material Allocated: ${widget.customer.materialAllocationDate!.toLocal().toString().split(' ')[0]}'),
                           if (_currentUser != null)
-                            Text('Your Role: ${_currentUser!.role.displayName}'),
+                            Text('Your Role: ${_currentUser!.roleDisplayName}'),
                         ],
                       ),
                     ),

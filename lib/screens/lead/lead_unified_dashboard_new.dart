@@ -397,6 +397,12 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
                           Icons.currency_rupee,
                           '₹${customer.amountTotal!.toStringAsFixed(0)}',
                         ),
+                      if (customer.currentPhase == 'amount' && customer.calculatedPaymentStatus != 'pending')
+                        _buildInfoRow(
+                          Icons.payment,
+                          '${customer.calculatedPaymentStatus.toUpperCase()}',
+                          color: customer.calculatedPaymentStatus == 'completed' ? Colors.green : Colors.orange,
+                        ),
                     ],
                   ),
                 ),
@@ -771,7 +777,79 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
   }
 
   void _viewAmountDetails(CustomerModel customer) {
-    _showMessage('Amount details view - to be implemented');
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Amount Details - ${customer.name}'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Basic Amount Information
+              _buildAmountDetailCard(
+                'Project Information',
+                [
+                  _buildDetailRow('Customer Name', customer.name),
+                  _buildDetailRow('Final Capacity', customer.amountKw != null 
+                      ? '${customer.amountKw} kW' : 'Not set'),
+                  _buildDetailRow('Total Project Amount', customer.amountTotal != null 
+                      ? '₹${customer.amountTotal!.toStringAsFixed(0)}' : 'Not set'),
+                ],
+              ),
+              const SizedBox(height: 16),
+              
+              // Payment Status Summary
+              if (customer.amountTotal != null && customer.amountTotal! > 0) ...[
+                _buildAmountDetailCard(
+                  'Payment Status',
+                  [
+                    _buildDetailRow('Total Amount', '₹${customer.amountTotal!.toStringAsFixed(0)}'),
+                    _buildDetailRow('Amount Paid', '₹${customer.totalAmountPaid.toStringAsFixed(0)}'),
+                    _buildDetailRow('Pending Amount', '₹${customer.pendingAmount.toStringAsFixed(0)}'),
+                    _buildDetailRow('Payment Status', customer.calculatedPaymentStatus.toUpperCase(),
+                        valueColor: customer.calculatedPaymentStatus == 'completed' ? Colors.green : 
+                                   customer.calculatedPaymentStatus == 'partial' ? Colors.orange : Colors.red),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Payment History
+              if (customer.paymentHistory.isNotEmpty) ...[
+                _buildAmountDetailCard(
+                  'Payment History (${customer.paymentHistory.length} payments)',
+                  customer.paymentHistory.map((payment) => 
+                    _buildPaymentHistoryItem(payment)
+                  ).toList(),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Additional Information
+              if (customer.amountNotes != null || customer.amountClearedDate != null) ...[
+                _buildAmountDetailCard(
+                  'Additional Information',
+                  [
+                    if (customer.amountClearedDate != null)
+                      _buildDetailRow('Phase Cleared On', 
+                          DateFormat('dd/MM/yyyy HH:mm').format(customer.amountClearedDate!)),
+                    if (customer.amountNotes != null)
+                      _buildDetailRow('Notes', customer.amountNotes!),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _viewMaterialStatus(CustomerModel customer) {
@@ -780,6 +858,124 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
 
   void _viewInstallationStatus(CustomerModel customer) {
     _showMessage('Installation status view - to be implemented');
+  }
+
+  // Helper methods for amount details UI
+  Widget _buildAmountDetailCard(String title, List<Widget> children) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.teal,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: valueColor ?? Colors.black87,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentHistoryItem(Map<String, dynamic> payment) {
+    final amount = payment['amount']?.toDouble() ?? 0.0;
+    final date = payment['date'] != null ? DateTime.parse(payment['date']) : null;
+    final utr = payment['utr'] ?? '';
+    final notes = payment['notes'] ?? '';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '₹${amount.toStringAsFixed(0)}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
+              if (date != null)
+                Text(
+                  DateFormat('dd/MM/yyyy').format(date),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+            ],
+          ),
+          if (utr.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'UTR: $utr',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[700],
+              ),
+            ),
+          ],
+          if (notes.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Notes: $notes',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[700],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Color _getPhaseColor(String phase) {

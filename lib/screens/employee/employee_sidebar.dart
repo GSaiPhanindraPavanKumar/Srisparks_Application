@@ -37,7 +37,7 @@ class EmployeeSidebar extends StatelessWidget {
             title: const Text('Customer Management'),
             onTap: () => Navigator.pushNamed(
               context,
-              AppRoutes.employeeUnifiedDashboard,
+              AppRoutes.employeeCustomerDashboard,
             ),
           ),
           ListTile(
@@ -46,18 +46,17 @@ class EmployeeSidebar extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, AppRoutes.myWork),
           ),
           ListTile(
+            leading: const Icon(Icons.construction),
+            title: const Text('My Installations'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.employeeInstallations),
+          ),
+          ListTile(
             leading: const Icon(Icons.add_business),
             title: const Text('New Application'),
             onTap: () => Navigator.pushNamed(
               context,
               AppRoutes.createCustomerApplication,
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.dashboard_customize),
-            title: const Text('Customer Projects'),
-            onTap: () =>
-                Navigator.pushNamed(context, AppRoutes.unifiedCustomers),
           ),
           ListTile(
             leading: const Icon(Icons.description),

@@ -8,6 +8,8 @@ import '../../services/auth_service.dart';
 import '../../services/office_service.dart';
 import '../shared/create_customer_application_screen.dart';
 import '../shared/customer_details_screen.dart';
+import '../shared/installation_assignment_screen.dart';
+import '../shared/installation_verification_screen.dart';
 import '../director/material_allocation_plan.dart';
 
 class ManagerUnifiedDashboard extends StatefulWidget {
@@ -547,6 +549,29 @@ class _ManagerUnifiedDashboardState extends State<ManagerUnifiedDashboard>
             label: const Text('Allocation Plan'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.brown,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+
+        // Installation phase actions
+        if (customer.currentPhase == 'installation') ...[
+          ElevatedButton.icon(
+            onPressed: () => _openInstallationAssignment(),
+            icon: const Icon(Icons.assignment_add, size: 16),
+            label: const Text('Manage Installations'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade700,
+              foregroundColor: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            onPressed: () => _openInstallationVerification(),
+            icon: const Icon(Icons.verified_user, size: 16),
+            label: const Text('Verify Installations'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade700,
               foregroundColor: Colors.white,
             ),
           ),
@@ -2359,5 +2384,29 @@ class _ManagerUnifiedDashboardState extends State<ManagerUnifiedDashboard>
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _openInstallationAssignment() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const InstallationAssignmentScreen(),
+      ),
+    ).then((_) {
+      // Refresh data after returning from installation assignment
+      _loadData();
+    });
+  }
+
+  void _openInstallationVerification() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const InstallationVerificationScreen(),
+      ),
+    ).then((_) {
+      // Refresh data after returning from installation verification
+      _loadData();
+    });
   }
 }

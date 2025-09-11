@@ -656,7 +656,9 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
 
           if (widget.customer.paymentHistory.isNotEmpty)
             _buildTimelineItem(
-              'Payment Processing',
+              widget.customer.calculatedPaymentStatus == 'completed'
+                  ? 'Payment Processed'
+                  : 'Payment Processing',
               '${widget.customer.paymentHistory.length} payment(s) received',
               widget.customer.calculatedPaymentStatus == 'completed',
               widget.customer.calculatedPaymentStatus == 'completed'
@@ -666,6 +668,37 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                   ? 'All payments completed successfully'
                   : 'Payment in progress - ₹${widget.customer.totalAmountPaid.toStringAsFixed(0)} of ₹${widget.customer.amountTotal?.toStringAsFixed(0) ?? '0'} paid',
               Icons.payment,
+            ),
+
+          // Material Allocation Phases
+          if (widget.customer.materialPlannedDate != null)
+            _buildTimelineItem(
+              'Material Planned',
+              DateFormat('dd/MM/yyyy HH:mm').format(widget.customer.materialPlannedDate!),
+              true,
+              Colors.blue,
+              'Material requirements planned and drafted',
+              Icons.inventory_2,
+            ),
+
+          if (widget.customer.materialAllocationDate != null)
+            _buildTimelineItem(
+              'Material Allocated',
+              DateFormat('dd/MM/yyyy HH:mm').format(widget.customer.materialAllocationDate!),
+              true,
+              Colors.orange,
+              'Materials allocated and ready for delivery',
+              Icons.local_shipping,
+            ),
+
+          if (widget.customer.materialConfirmedDate != null)
+            _buildTimelineItem(
+              'Material Confirmed',
+              DateFormat('dd/MM/yyyy HH:mm').format(widget.customer.materialConfirmedDate!),
+              true,
+              Colors.green,
+              'Material allocation confirmed and finalized',
+              Icons.check_circle,
             ),
 
           // Current phase indicator

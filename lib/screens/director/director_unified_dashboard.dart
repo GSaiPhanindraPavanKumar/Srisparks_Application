@@ -3,11 +3,16 @@ import 'package:intl/intl.dart';
 import '../../models/customer_model.dart';
 import '../../models/user_model.dart';
 import '../../models/office_model.dart';
+import '../../models/installation_model.dart';
 import '../../services/customer_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/office_service.dart';
+import '../../services/user_service.dart';
+import '../../services/installation_service.dart';
 import '../shared/create_customer_application_screen.dart';
 import '../shared/customer_details_screen.dart';
+import '../shared/installation_assignment_screen.dart';
+import '../shared/installation_verification_screen.dart';
 import 'material_allocation_plan.dart';
 
 class DirectorUnifiedDashboard extends StatefulWidget {
@@ -144,6 +149,41 @@ class _DirectorUnifiedDashboardState extends State<DirectorUnifiedDashboard>
         title: const Text('Director Dashboard'),
         backgroundColor: Colors.purple,
         foregroundColor: Colors.white,
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.construction),
+            tooltip: 'Installation Management',
+            onSelected: (value) {
+              switch (value) {
+                case 'assign':
+                  _openInstallationAssignment();
+                  break;
+                case 'verify':
+                  _openInstallationVerification();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'assign',
+                child: ListTile(
+                  leading: Icon(Icons.assignment_add),
+                  title: Text('Assign Installations'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'verify',
+                child: ListTile(
+                  leading: Icon(Icons.verified_user),
+                  title: Text('Verify Installations'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 8),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(180),
           child: Column(
@@ -1085,6 +1125,72 @@ class _DirectorUnifiedDashboardState extends State<DirectorUnifiedDashboard>
       ]);
     }
 
+    // Installation phase actions
+    if (customer.currentPhase == 'installation') {
+      // We need to check if customer has an installation assignment
+      buttons.add(
+        FutureBuilder<InstallationWorkAssignment?>(
+          future: InstallationService.getCustomerInstallationAssignment(customer.id),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(
+                width: 120,
+                height: 36,
+                child: Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              );
+            }
+            
+            final hasAssignment = snapshot.data != null;
+            
+            if (!hasAssignment) {
+              // Customer doesn't have installation assignment - show assign button
+              return ElevatedButton.icon(
+                onPressed: () => _showAssignInstallationDialog(customer),
+                icon: const Icon(Icons.assignment_add, size: 16),
+                label: const Text('Assign Installation'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade600,
+                  foregroundColor: Colors.white,
+                ),
+              );
+            } else {
+              // Customer has assignment - show manage buttons
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () => _openInstallationAssignment(),
+                    icon: const Icon(Icons.assignment, size: 16),
+                    label: const Text('Manage'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade700,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => _openInstallationVerification(),
+                    icon: const Icon(Icons.verified_user, size: 16),
+                    label: const Text('Verify'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal.shade700,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              );
+            }
+          },
+        ),
+      );
+    }
+
     // Universal View Details button for all customers
     buttons.addAll([
       const SizedBox(width: 8),
@@ -1876,6 +1982,301 @@ class _DirectorUnifiedDashboardState extends State<DirectorUnifiedDashboard>
       _loadCustomers();
     } catch (e) {
       _showMessage('Error opening material allocation plan: $e');
+    }
+  }
+
+  void _openInstallationAssignment() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const InstallationAssignmentScreen(),
+      ),
+    ).then((_) {
+      // Refresh data after returning from installation assignment
+      _loadCustomers();
+    });
+  }
+
+  void _showAssignInstallationDialog(CustomerModel customer) async {
+    try {
+      // Get employees from the same office as the customer
+      final userService = UserService();
+      final allOfficeUsers = await userService.getUsersByOffice(customer.officeId);
+      final employees = allOfficeUsers.where((user) => user.role == UserRole.employee).toList();
+
+      if (employees.isEmpty) {
+        _showMessage('No employees found in customer\'s office for assignment');
+        return;
+      }
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => InstallationAssignmentDialog(
+          customer: customer,
+          availableEmployees: employees,
+          currentUser: _currentUser!,
+          onAssigned: () {
+            _loadCustomers(); // Refresh the customer list
+          },
+        ),
+      );
+    } catch (e) {
+      _showMessage('Error loading employees: $e');
+    }
+  }
+
+  void _openInstallationVerification() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const InstallationVerificationScreen(),
+      ),
+    ).then((_) {
+      // Refresh data after returning from installation verification
+      _loadCustomers();
+    });
+  }
+}
+
+// Installation Assignment Dialog Widget
+class InstallationAssignmentDialog extends StatefulWidget {
+  final CustomerModel customer;
+  final List<UserModel> availableEmployees;
+  final UserModel currentUser;
+  final VoidCallback onAssigned;
+
+  const InstallationAssignmentDialog({
+    super.key,
+    required this.customer,
+    required this.availableEmployees,
+    required this.currentUser,
+    required this.onAssigned,
+  });
+
+  @override
+  State<InstallationAssignmentDialog> createState() => _InstallationAssignmentDialogState();
+}
+
+class _InstallationAssignmentDialogState extends State<InstallationAssignmentDialog> {
+  final Set<String> _selectedEmployeeIds = <String>{};
+  final TextEditingController _notesController = TextEditingController();
+  DateTime _scheduledDate = DateTime.now().add(const Duration(days: 1));
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          const Icon(Icons.assignment_add, color: Colors.orange),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Assign Installation\n${widget.customer.name}',
+              style: const TextStyle(fontSize: 18),
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.8,
+        height: MediaQuery.of(context).size.height * 0.6,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Customer Info
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Customer: ${widget.customer.name}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  if (widget.customer.address != null)
+                    Text('Address: ${widget.customer.address}'),
+                  if (widget.customer.phoneNumber != null)
+                    Text('Phone: ${widget.customer.phoneNumber}'),
+                  Text('Office: ${widget.customer.officeId}'),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Scheduled Date
+            Row(
+              children: [
+                const Icon(Icons.calendar_today, size: 20, color: Colors.grey),
+                const SizedBox(width: 8),
+                const Text('Scheduled Date:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(width: 16),
+                TextButton(
+                  onPressed: _selectDate,
+                  child: Text(
+                    '${_scheduledDate.day}/${_scheduledDate.month}/${_scheduledDate.year}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Employee Selection
+            const Text(
+              'Select Employees (from same office):',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: widget.availableEmployees.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No employees available in this office',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: widget.availableEmployees.length,
+                        itemBuilder: (context, index) {
+                          final employee = widget.availableEmployees[index];
+                          final isSelected = _selectedEmployeeIds.contains(employee.id);
+                          
+                          return CheckboxListTile(
+                            title: Text(employee.fullName ?? 'Unknown'),
+                            subtitle: Text(employee.phoneNumber ?? ''),
+                            value: isSelected,
+                            onChanged: (bool? value) {
+                              setState(() {
+                                if (value == true) {
+                                  _selectedEmployeeIds.add(employee.id);
+                                } else {
+                                  _selectedEmployeeIds.remove(employee.id);
+                                }
+                              });
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Notes
+            TextField(
+              controller: _notesController,
+              decoration: const InputDecoration(
+                labelText: 'Notes (Optional)',
+                border: OutlineInputBorder(),
+                hintText: 'Add any special instructions...',
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading || _selectedEmployeeIds.isEmpty ? null : _assignInstallation,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Text('Assign Installation'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _selectDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _scheduledDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null && picked != _scheduledDate) {
+      setState(() {
+        _scheduledDate = picked;
+      });
+    }
+  }
+
+  Future<void> _assignInstallation() async {
+    if (_selectedEmployeeIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select at least one employee')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    
+    try {
+      await InstallationService.createInstallationAssignment(
+        customerId: widget.customer.id,
+        assignedEmployeeIds: _selectedEmployeeIds.toList(),
+        assignedById: widget.currentUser.id,
+        scheduledDate: _scheduledDate,
+        notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+      );
+      
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onAssigned();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Installation assigned successfully to ${_selectedEmployeeIds.length} employee(s)'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error assigning installation: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 }

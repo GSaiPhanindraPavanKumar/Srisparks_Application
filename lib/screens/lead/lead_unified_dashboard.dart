@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/customer_model.dart';
 import '../../models/user_model.dart';
+import '../../models/office_model.dart';
 import '../../services/customer_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/office_service.dart';
 import 'lead_sidebar.dart';
 import '../shared/customer_details_screen.dart';
+import '../shared/installation_assignment_screen.dart';
+import '../shared/installation_verification_screen.dart';
+import '../director/material_allocation_plan.dart';
 import '../../config/app_router.dart';
 
 class LeadUnifiedDashboard extends StatefulWidget {
@@ -19,6 +24,7 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
     with SingleTickerProviderStateMixin {
   final CustomerService _customerService = CustomerService();
   final AuthService _authService = AuthService();
+  final OfficeService _officeService = OfficeService();
 
   late TabController _tabController;
 
@@ -165,6 +171,41 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
         title: const Text('Lead - Customer Management'),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.construction),
+            tooltip: 'Installation Management',
+            onSelected: (value) {
+              switch (value) {
+                case 'assign':
+                  _openInstallationAssignment();
+                  break;
+                case 'verify':
+                  _openInstallationVerification();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'assign',
+                child: ListTile(
+                  leading: Icon(Icons.assignment_add),
+                  title: Text('Assign Installations'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'verify',
+                child: ListTile(
+                  leading: Icon(Icons.verified_user),
+                  title: Text('Verify Installations'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 8),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(100),
           child: Column(
@@ -400,6 +441,22 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
                           Icons.currency_rupee,
                           '₹${customer.amountTotal!.toStringAsFixed(0)}',
                         ),
+                      if (customer.materialPlannedDate != null) ...[
+                        const SizedBox(height: 4),
+                        _buildInfoRow(
+                          Icons.schedule,
+                          'Planned: ${DateFormat('dd/MM/yy').format(customer.materialPlannedDate!)}',
+                          color: Colors.blue,
+                        ),
+                      ],
+                      if (customer.materialAllocationDate != null) ...[
+                        const SizedBox(height: 4),
+                        _buildInfoRow(
+                          Icons.check_circle,
+                          'Allocated: ${DateFormat('dd/MM/yy').format(customer.materialAllocationDate!)}',
+                          color: Colors.green,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -774,11 +831,356 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
   }
 
   void _viewAmountDetails(CustomerModel customer) {
-    _showMessage('Amount details view - to be implemented');
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          height: MediaQuery.of(context).size.height * 0.7,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${customer.name} - Amount Details',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const Divider(),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildAmountDetailSection('Project Information', [
+                        'Customer: ${customer.name}',
+                        'KW Capacity: ${customer.kw ?? 'N/A'}',
+                        'Email: ${customer.email ?? 'N/A'}',
+                        'Phone: ${customer.phoneNumber ?? 'N/A'}',
+                      ]),
+                      _buildAmountDetailSection('Amount Details', [
+                        'Total Amount: ₹${customer.amountTotal?.toStringAsFixed(0) ?? 'N/A'}',
+                        'Amount Paid: ₹${customer.amountPaid?.toStringAsFixed(0) ?? '0'}',
+                        'Remaining: ₹${customer.amountTotal != null && customer.amountPaid != null ? (customer.amountTotal! - customer.amountPaid!).toStringAsFixed(0) : 'N/A'}',
+                        'Payment Status: ${customer.amountPaymentStatus?.toUpperCase() ?? 'PENDING'}',
+                        if (customer.amountUtrNumber?.isNotEmpty == true)
+                          'UTR Number: ${customer.amountUtrNumber}',
+                        if (customer.amountPaidDate != null)
+                          'Payment Date: ${DateFormat('dd/MM/yyyy').format(customer.amountPaidDate!)}',
+                        if (customer.amountNotes?.isNotEmpty == true)
+                          'Notes: ${customer.amountNotes}',
+                      ]),
+                    ],
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAmountDetailSection(String title, List<String> items) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.teal,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(item, style: const TextStyle(fontSize: 14)),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  void _manageAmountPhase(CustomerModel customer) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Manage Amount Phase - ${customer.name}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Current Status: ${customer.amountPaymentStatus?.toUpperCase() ?? 'PENDING'}',
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Total Amount: ₹${customer.amountTotal?.toStringAsFixed(0) ?? 'N/A'}',
+            ),
+            Text(
+              'Amount Paid: ₹${customer.amountPaid?.toStringAsFixed(0) ?? '0'}',
+            ),
+            const SizedBox(height: 16),
+            const Text('Available Actions:'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _markPaymentReceived(customer);
+            },
+            child: const Text('Mark Payment'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _moveToMaterialPhase(customer);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Move to Material'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _markPaymentReceived(CustomerModel customer) {
+    _showMessage('Payment marking functionality - to be implemented');
+  }
+
+  void _moveToMaterialPhase(CustomerModel customer) {
+    _showMessage('Moving to material phase - to be implemented');
   }
 
   void _viewMaterialStatus(CustomerModel customer) {
-    _showMessage('Material status view - to be implemented');
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          height: MediaQuery.of(context).size.height * 0.7,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${customer.name} - Material Status',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const Divider(),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildAmountDetailSection('Project Information', [
+                        'Customer: ${customer.name}',
+                        'KW Capacity: ${customer.kw ?? 'N/A'}',
+                        'Current Phase: ${customer.currentPhase.replaceAll('_', ' ').toUpperCase()}',
+                        'Email: ${customer.email ?? 'N/A'}',
+                        'Phone: ${customer.phoneNumber ?? 'N/A'}',
+                      ]),
+                      _buildAmountDetailSection('Material Phase Details', [
+                        'Material Status: ${_getMaterialPhaseLabel(customer.currentPhase)}',
+                        'KW Requirement: ${customer.kw ?? 'N/A'}',
+                        if (customer.amountTotal != null)
+                          'Project Value: ₹${customer.amountTotal!.toStringAsFixed(0)}',
+                        'Payment Status: ${customer.amountPaymentStatus?.toUpperCase() ?? 'PENDING'}',
+                      ]),
+                    ],
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _manageMaterialPhase(customer);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Manage Material'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getMaterialPhaseLabel(String phase) {
+    switch (phase) {
+      case 'material_allocation':
+        return 'Material Allocation in Progress';
+      case 'material_delivery':
+        return 'Material Delivery in Progress';
+      case 'material':
+        return 'Material Phase';
+      default:
+        return phase.replaceAll('_', ' ').toUpperCase();
+    }
+  }
+
+  void _manageMaterialPhase(CustomerModel customer) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Manage Material Phase - ${customer.name}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Current Phase: ${_getMaterialPhaseLabel(customer.currentPhase)}',
+            ),
+            const SizedBox(height: 16),
+            Text('KW Capacity: ${customer.kw ?? 'N/A'}'),
+            if (customer.amountTotal != null)
+              Text(
+                'Project Value: ₹${customer.amountTotal!.toStringAsFixed(0)}',
+              ),
+            const SizedBox(height: 16),
+            const Text('Available Actions:'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          if (customer.currentPhase == 'material_allocation')
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _markMaterialAllocated(customer);
+              },
+              child: const Text('Plan Material Allocation'),
+            ),
+          if (customer.currentPhase == 'material_delivery')
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _markMaterialDelivered(customer);
+              },
+              child: const Text('Mark Delivered'),
+            ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _moveToInstallationPhase(customer);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Move to Installation'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _markMaterialAllocated(CustomerModel customer) async {
+    try {
+      // Get the customer's office
+      final office = await _officeService.getOfficeById(customer.officeId);
+      if (office == null) {
+        if (mounted) {
+          _showMessage('Unable to find customer office');
+        }
+        return;
+      }
+
+      // Navigate to material allocation screen
+      if (mounted) {
+        final result = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MaterialAllocationPlan(
+              customer: customer,
+              office: office,
+            ),
+          ),
+        );
+
+        // Refresh data if allocation was saved
+        if (result == true) {
+          _loadData();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showMessage('Error opening material allocation: $e');
+      }
+    }
+  }
+
+  void _markMaterialDelivered(CustomerModel customer) {
+    _showMessage('Material delivery marking - to be implemented');
+  }
+
+  void _moveToInstallationPhase(CustomerModel customer) {
+    _showMessage('Moving to installation phase - to be implemented');
   }
 
   void _viewInstallationStatus(CustomerModel customer) {
@@ -886,5 +1288,29 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
       default:
         return Colors.grey;
     }
+  }
+
+  void _openInstallationAssignment() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const InstallationAssignmentScreen(),
+      ),
+    ).then((_) {
+      // Refresh data after returning from installation assignment
+      _loadData();
+    });
+  }
+
+  void _openInstallationVerification() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const InstallationVerificationScreen(),
+      ),
+    ).then((_) {
+      // Refresh data after returning from installation verification
+      _loadData();
+    });
   }
 }

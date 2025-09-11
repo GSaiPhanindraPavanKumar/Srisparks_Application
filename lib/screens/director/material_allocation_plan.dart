@@ -30,10 +30,10 @@ class _MaterialAllocationPlanState extends State<MaterialAllocationPlan> {
 
   // Manual requirements - editable by user
   Map<String, int> _manualRequirements = {};
-  
+
   // Track if allocation has been saved
   bool _hasUnsavedChanges = false;
-  
+
   // Current user
   UserModel? _currentUser;
 
@@ -49,7 +49,7 @@ class _MaterialAllocationPlanState extends State<MaterialAllocationPlan> {
     try {
       // Get current user
       _currentUser = await _authService.getCurrentUser();
-      
+
       // Load actual stock data from the office
       print('Loading stock data for office: ${widget.office.id}');
 
@@ -64,31 +64,33 @@ class _MaterialAllocationPlanState extends State<MaterialAllocationPlan> {
       }
 
       // Load existing allocation plan if any
-      final existingPlan = widget.customer.materialAllocationPlanData ?? <String, dynamic>{};
-      
+      final existingPlan =
+          widget.customer.materialAllocationPlanData ?? <String, dynamic>{};
+
       setState(() {
         _stockItems = stockItems;
-        _manualRequirements = existingPlan.map((key, value) => MapEntry(key, (value as num?)?.toInt() ?? 0));
+        _manualRequirements = existingPlan.map(
+          (key, value) => MapEntry(key, (value as num?)?.toInt() ?? 0),
+        );
         _isLoading = false;
       });
-
     } catch (e) {
       print('Error loading data: $e');
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading data: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
       }
     }
   }
 
   Future<void> _saveAsDraft() async {
     if (_currentUser == null) return;
-    
+
     try {
       setState(() => _isLoading = true);
-      
+
       await SimplifiedMaterialAllocationService.saveAsDraft(
         customerId: widget.customer.id,
         allocationPlan: _buildAllocationPlan(),
@@ -97,7 +99,7 @@ class _MaterialAllocationPlanState extends State<MaterialAllocationPlan> {
       );
 
       setState(() => _hasUnsavedChanges = false);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Material allocation saved as draft')),
@@ -106,9 +108,9 @@ class _MaterialAllocationPlanState extends State<MaterialAllocationPlan> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving draft: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error saving draft: $e')));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -117,19 +119,20 @@ class _MaterialAllocationPlanState extends State<MaterialAllocationPlan> {
 
   Future<void> _proceedWithAllocation() async {
     if (_currentUser == null) return;
-    
+
     try {
       setState(() => _isLoading = true);
-      
+
       await SimplifiedMaterialAllocationService.proceedWithAllocation(
         customerId: widget.customer.id,
         updatedAllocationPlan: _buildAllocationPlan(),
         allocatedById: _currentUser!.id,
-        notes: 'Material allocation proceeded by ${_currentUser!.role.displayName}',
+        notes:
+            'Material allocation proceeded by ${_currentUser!.role.displayName}',
       );
 
       setState(() => _hasUnsavedChanges = false);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Material allocation proceeded')),
@@ -149,20 +152,24 @@ class _MaterialAllocationPlanState extends State<MaterialAllocationPlan> {
 
   Future<void> _confirmAllocation() async {
     if (_currentUser == null) return;
-    
+
     try {
       setState(() => _isLoading = true);
-      
+
       await SimplifiedMaterialAllocationService.confirmAllocation(
         customerId: widget.customer.id,
         confirmedById: _currentUser!.id,
       );
 
       setState(() => _hasUnsavedChanges = false);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Material allocation confirmed! Stock has been deducted.')),
+          const SnackBar(
+            content: Text(
+              'Material allocation confirmed! Stock has been deducted.',
+            ),
+          ),
         );
         Navigator.pop(context, true);
       }
@@ -189,28 +196,30 @@ class _MaterialAllocationPlanState extends State<MaterialAllocationPlan> {
 
   Widget _buildActionButtons() {
     if (_currentUser == null) return const SizedBox();
-    
+
     final userRole = _currentUser!.role.name;
     final isUserLead = _currentUser!.isLead;
     final status = widget.customer.materialAllocationStatus;
-    
+
     // Debug information
     print('Material Allocation Debug:');
     print('User Role: $userRole');
     print('Is Lead: $isUserLead');
     print('Material Status: $status');
     print('Role Display Name: ${_currentUser!.roleDisplayName}');
-    
+
     List<Widget> buttons = [];
 
     // Save as Draft - Available for Lead (including isLead=true employees), Manager, Director when status is pending or planned
-    final hasLeadPermissions = ['lead', 'manager', 'director'].contains(userRole) || 
+    final hasLeadPermissions =
+        ['lead', 'manager', 'director'].contains(userRole) ||
         (userRole == 'employee' && isUserLead);
-    final canSaveAsDraft = hasLeadPermissions && ['pending', 'planned'].contains(status);
-    
+    final canSaveAsDraft =
+        hasLeadPermissions && ['pending', 'planned'].contains(status);
+
     print('Has Lead Permissions: $hasLeadPermissions');
     print('Can Save as Draft: $canSaveAsDraft');
-    
+
     if (canSaveAsDraft) {
       buttons.add(
         ElevatedButton.icon(
@@ -256,13 +265,12 @@ class _MaterialAllocationPlanState extends State<MaterialAllocationPlan> {
     }
 
     if (buttons.isEmpty) {
-      return const Text('No actions available for your role and current status');
+      return const Text(
+        'No actions available for your role and current status',
+      );
     }
 
-    return Wrap(
-      spacing: 10,
-      children: buttons,
-    );
+    return Wrap(spacing: 10, children: buttons);
   }
 
   @override
@@ -291,21 +299,27 @@ class _MaterialAllocationPlanState extends State<MaterialAllocationPlan> {
                             style: Theme.of(context).textTheme.headlineSmall,
                           ),
                           const SizedBox(height: 8),
-                          Text('Status: ${widget.customer.materialAllocationStatus}'),
+                          Text(
+                            'Status: ${widget.customer.materialAllocationStatus}',
+                          ),
                           Text('Office: ${widget.office.name}'),
                           if (widget.customer.materialPlannedDate != null)
-                            Text('Material Planned: ${widget.customer.materialPlannedDate!.toLocal().toString().split(' ')[0]}'),
+                            Text(
+                              'Material Planned: ${widget.customer.materialPlannedDate!.toLocal().toString().split(' ')[0]}',
+                            ),
                           if (widget.customer.materialAllocationDate != null)
-                            Text('Material Allocated: ${widget.customer.materialAllocationDate!.toLocal().toString().split(' ')[0]}'),
+                            Text(
+                              'Material Allocated: ${widget.customer.materialAllocationDate!.toLocal().toString().split(' ')[0]}',
+                            ),
                           if (_currentUser != null)
                             Text('Your Role: ${_currentUser!.roleDisplayName}'),
                         ],
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Stock Items
                   Card(
                     child: Padding(
@@ -321,44 +335,53 @@ class _MaterialAllocationPlanState extends State<MaterialAllocationPlan> {
                           if (_stockItems.isEmpty)
                             const Text('No stock items available')
                           else
-                            ..._stockItems.map((item) => Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: ListTile(
-                                title: Text(item.name),
-                                subtitle: Text('Available: ${item.currentStock}'),
-                                trailing: SizedBox(
-                                  width: 100,
-                                  child: TextFormField(
-                                    keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Allocate',
-                                      border: OutlineInputBorder(),
+                            ..._stockItems.map(
+                              (item) => Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: ListTile(
+                                  title: Text(item.name),
+                                  subtitle: Text(
+                                    'Available: ${item.currentStock}',
+                                  ),
+                                  trailing: SizedBox(
+                                    width: 100,
+                                    child: TextFormField(
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Allocate',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      initialValue:
+                                          (_manualRequirements[item.id ?? ''] ??
+                                                  0)
+                                              .toString(),
+                                      onChanged: (value) {
+                                        final quantity =
+                                            int.tryParse(value) ?? 0;
+                                        final itemId = item.id ?? '';
+                                        if (itemId.isNotEmpty) {
+                                          setState(() {
+                                            _manualRequirements[itemId] =
+                                                quantity;
+                                            _hasUnsavedChanges = true;
+                                          });
+                                        }
+                                      },
                                     ),
-                                    initialValue: (_manualRequirements[item.id ?? ''] ?? 0).toString(),
-                                    onChanged: (value) {
-                                      final quantity = int.tryParse(value) ?? 0;
-                                      final itemId = item.id ?? '';
-                                      if (itemId.isNotEmpty) {
-                                        setState(() {
-                                          _manualRequirements[itemId] = quantity;
-                                          _hasUnsavedChanges = true;
-                                        });
-                                      }
-                                    },
                                   ),
                                 ),
                               ),
-                            )),
+                            ),
                         ],
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Action Buttons
                   _buildActionButtons(),
-                  
+
                   if (_hasUnsavedChanges)
                     const Padding(
                       padding: EdgeInsets.only(top: 16),

@@ -363,7 +363,8 @@ class _EmployeeCustomerDashboardState extends State<EmployeeCustomerDashboard>
                     onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => CustomerDetailsScreen(customer: customer),
+                        builder: (context) =>
+                            CustomerDetailsScreen(customer: customer),
                       ),
                     ),
                     icon: const Icon(Icons.visibility, size: 16),
@@ -572,9 +573,7 @@ class _EmployeeCustomerDashboardState extends State<EmployeeCustomerDashboard>
             child: _buildInfoItem(
               Icons.account_balance_wallet,
               'Payment: ${customer.amountPaymentStatus?.toUpperCase() ?? 'PENDING'}',
-              _getPaymentStatusColor(
-                customer.amountPaymentStatus ?? 'pending',
-              ),
+              _getPaymentStatusColor(customer.amountPaymentStatus ?? 'pending'),
             ),
           ),
         ],
@@ -599,12 +598,15 @@ class _EmployeeCustomerDashboardState extends State<EmployeeCustomerDashboard>
               child: _buildInfoItem(
                 Icons.inventory,
                 'Material: ${customer.currentPhase == 'material_allocation' ? 'Allocating' : 'Delivering'}',
-                customer.currentPhase == 'material_allocation' ? Colors.purple : Colors.purple.shade700,
+                customer.currentPhase == 'material_allocation'
+                    ? Colors.purple
+                    : Colors.purple.shade700,
               ),
             ),
           ],
         ),
-        if (customer.materialPlannedDate != null || customer.materialAllocationDate != null) ...[
+        if (customer.materialPlannedDate != null ||
+            customer.materialAllocationDate != null) ...[
           const SizedBox(height: 8),
           Row(
             children: [
@@ -711,7 +713,10 @@ class _EmployeeCustomerDashboardState extends State<EmployeeCustomerDashboard>
               },
               child: const Text('Manage Amount'),
             ),
-          if (['material_allocation', 'material_delivery'].contains(customer.currentPhase))
+          if ([
+            'material_allocation',
+            'material_delivery',
+          ].contains(customer.currentPhase))
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);

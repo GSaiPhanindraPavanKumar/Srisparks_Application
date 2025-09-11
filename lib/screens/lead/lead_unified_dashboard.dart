@@ -8,8 +8,6 @@ import '../../services/auth_service.dart';
 import '../../services/office_service.dart';
 import 'lead_sidebar.dart';
 import '../shared/customer_details_screen.dart';
-import '../shared/installation_assignment_screen.dart';
-import '../shared/installation_verification_screen.dart';
 import '../director/material_allocation_plan.dart';
 import '../../config/app_router.dart';
 
@@ -171,41 +169,6 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
         title: const Text('Lead - Customer Management'),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.construction),
-            tooltip: 'Installation Management',
-            onSelected: (value) {
-              switch (value) {
-                case 'assign':
-                  _openInstallationAssignment();
-                  break;
-                case 'verify':
-                  _openInstallationVerification();
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'assign',
-                child: ListTile(
-                  leading: Icon(Icons.assignment_add),
-                  title: Text('Assign Installations'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'verify',
-                child: ListTile(
-                  leading: Icon(Icons.verified_user),
-                  title: Text('Verify Installations'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 8),
-        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(100),
           child: Column(
@@ -1156,10 +1119,8 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
         final result = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
-            builder: (context) => MaterialAllocationPlan(
-              customer: customer,
-              office: office,
-            ),
+            builder: (context) =>
+                MaterialAllocationPlan(customer: customer, office: office),
           ),
         );
 
@@ -1288,29 +1249,5 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
       default:
         return Colors.grey;
     }
-  }
-
-  void _openInstallationAssignment() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const InstallationAssignmentScreen(),
-      ),
-    ).then((_) {
-      // Refresh data after returning from installation assignment
-      _loadData();
-    });
-  }
-
-  void _openInstallationVerification() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const InstallationVerificationScreen(),
-      ),
-    ).then((_) {
-      // Refresh data after returning from installation verification
-      _loadData();
-    });
   }
 }

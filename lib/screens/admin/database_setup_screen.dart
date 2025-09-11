@@ -30,9 +30,9 @@ class _DatabaseSetupScreenState extends State<DatabaseSetupScreen> {
       final exists = await _migrationService.verifyInstallationTables();
       setState(() {
         _tablesExist = exists;
-        _statusMessage = exists 
-          ? '✅ All installation tables are set up correctly!'
-          : '❌ Installation tables are missing. Please run the SQL migration.';
+        _statusMessage = exists
+            ? '✅ All installation tables are set up correctly!'
+            : '❌ Installation tables are missing. Please run the SQL migration.';
       });
     } catch (e) {
       setState(() {
@@ -49,7 +49,8 @@ class _DatabaseSetupScreenState extends State<DatabaseSetupScreen> {
     // You would need to provide a valid customer ID here
     // This is just a placeholder
     setState(() {
-      _statusMessage = '⚠️ Sample data creation requires a valid customer ID. Please implement this feature in your admin panel.';
+      _statusMessage =
+          '⚠️ Sample data creation requires a valid customer ID. Please implement this feature in your admin panel.';
     });
   }
 
@@ -145,7 +146,9 @@ class _DatabaseSetupScreenState extends State<DatabaseSetupScreen> {
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton(
-                  onPressed: _tablesExist && !_isLoading ? _createSampleData : null,
+                  onPressed: _tablesExist && !_isLoading
+                      ? _createSampleData
+                      : null,
                   child: const Text('Create Sample Data'),
                 ),
               ],
@@ -184,7 +187,9 @@ class _DatabaseSetupScreenState extends State<DatabaseSetupScreen> {
                       ),
                       const Text('1. Open Supabase Dashboard'),
                       const Text('2. Go to SQL Editor'),
-                      const Text('3. Run database/migrations/create_installation_tables.sql'),
+                      const Text(
+                        '3. Run database/migrations/create_installation_tables.sql',
+                      ),
                       const Text('4. Come back and click "Check Tables"'),
                     ],
                   ),

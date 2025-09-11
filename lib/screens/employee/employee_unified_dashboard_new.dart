@@ -104,15 +104,22 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
     // Filter by search query
     if (_searchQuery.isNotEmpty) {
       filtered = filtered.where((customer) {
-        return customer.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            (customer.email?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
+        return customer.name.toLowerCase().contains(
+              _searchQuery.toLowerCase(),
+            ) ||
+            (customer.email?.toLowerCase().contains(
+                  _searchQuery.toLowerCase(),
+                ) ??
+                false) ||
             (customer.phoneNumber?.contains(_searchQuery) ?? false);
       }).toList();
     }
 
     // Filter by phase
     if (_selectedPhase != 'all') {
-      filtered = filtered.where((customer) => customer.currentPhase == _selectedPhase).toList();
+      filtered = filtered
+          .where((customer) => customer.currentPhase == _selectedPhase)
+          .toList();
     }
 
     // Filter by view (all vs assigned)
@@ -135,10 +142,7 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
           Expanded(
             child: Text(
               'View: ${_selectedView == 'all' ? 'All Customers' : 'Assigned Customers'}',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
           ),
           TextButton(
@@ -246,13 +250,16 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
                 if (customer.currentPhase == 'amount') ...[
                   const SizedBox(width: 16),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: customer.calculatedPaymentStatus == 'Fully Paid'
                           ? Colors.green
                           : customer.calculatedPaymentStatus == 'Partially Paid'
-                              ? Colors.orange
-                              : Colors.red,
+                          ? Colors.orange
+                          : Colors.red,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -268,13 +275,16 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
                 if (customer.currentPhase == 'material') ...[
                   const SizedBox(width: 16),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: customer.materialAllocationStatus == 'delivered'
                           ? Colors.green
                           : customer.materialAllocationStatus == 'allocated'
-                              ? Colors.orange
-                              : Colors.grey,
+                          ? Colors.orange
+                          : Colors.grey,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -604,8 +614,8 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
                 customer.calculatedPaymentStatus == 'Fully Paid'
                     ? Colors.green
                     : customer.calculatedPaymentStatus == 'Partially Paid'
-                        ? Colors.orange
-                        : Colors.red,
+                    ? Colors.orange
+                    : Colors.red,
               ),
               const SizedBox(height: 12),
               _buildAmountInfoCard(
@@ -646,8 +656,8 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
                 customer.materialAllocationStatus == 'delivered'
                     ? Colors.green
                     : customer.materialAllocationStatus == 'allocated'
-                        ? Colors.orange
-                        : Colors.grey,
+                    ? Colors.orange
+                    : Colors.grey,
               ),
               const SizedBox(height: 12),
               _buildAmountInfoCard(
@@ -657,14 +667,16 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
                 Colors.orange,
               ),
               const SizedBox(height: 12),
-              if (customer.materialAllocationNotes != null && customer.materialAllocationNotes!.isNotEmpty)
+              if (customer.materialAllocationNotes != null &&
+                  customer.materialAllocationNotes!.isNotEmpty)
                 _buildAmountInfoCard(
                   'Material Notes',
                   customer.materialAllocationNotes!,
                   Icons.note,
                   Colors.blue,
                 ),
-              if (customer.materialAllocationNotes != null && customer.materialAllocationNotes!.isNotEmpty)
+              if (customer.materialAllocationNotes != null &&
+                  customer.materialAllocationNotes!.isNotEmpty)
                 const SizedBox(height: 12),
               if (customer.materialDeliveryDate != null)
                 _buildAmountInfoCard(
@@ -694,7 +706,12 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
     );
   }
 
-  Widget _buildAmountInfoCard(String title, String value, IconData icon, Color color) {
+  Widget _buildAmountInfoCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

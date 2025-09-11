@@ -674,7 +674,9 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
           if (widget.customer.materialPlannedDate != null)
             _buildTimelineItem(
               'Material Planned',
-              DateFormat('dd/MM/yyyy HH:mm').format(widget.customer.materialPlannedDate!),
+              DateFormat(
+                'dd/MM/yyyy HH:mm',
+              ).format(widget.customer.materialPlannedDate!),
               true,
               Colors.blue,
               'Material requirements planned and drafted',
@@ -684,7 +686,9 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
           if (widget.customer.materialAllocationDate != null)
             _buildTimelineItem(
               'Material Allocated',
-              DateFormat('dd/MM/yyyy HH:mm').format(widget.customer.materialAllocationDate!),
+              DateFormat(
+                'dd/MM/yyyy HH:mm',
+              ).format(widget.customer.materialAllocationDate!),
               true,
               Colors.orange,
               'Materials allocated and ready for delivery',
@@ -694,7 +698,9 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
           if (widget.customer.materialConfirmedDate != null)
             _buildTimelineItem(
               'Material Confirmed',
-              DateFormat('dd/MM/yyyy HH:mm').format(widget.customer.materialConfirmedDate!),
+              DateFormat(
+                'dd/MM/yyyy HH:mm',
+              ).format(widget.customer.materialConfirmedDate!),
               true,
               Colors.green,
               'Material allocation confirmed and finalized',

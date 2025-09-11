@@ -937,34 +937,3 @@ class InstallationActivity {
     };
   }
 }
-
-/// Installation Verification Status Enum
-enum InstallationVerificationStatus {
-  pending('pending'),
-  approved('approved'),
-  rejected('rejected'),
-  underReview('under_review');
-
-  const InstallationVerificationStatus(this.value);
-  final String value;
-
-  static InstallationVerificationStatus fromString(String value) {
-    return InstallationVerificationStatus.values.firstWhere(
-      (status) => status.value == value,
-      orElse: () => InstallationVerificationStatus.pending,
-    );
-  }
-
-  String get displayName {
-    switch (this) {
-      case InstallationVerificationStatus.pending:
-        return 'Pending';
-      case InstallationVerificationStatus.approved:
-        return 'Approved';
-      case InstallationVerificationStatus.rejected:
-        return 'Rejected';
-      case InstallationVerificationStatus.underReview:
-        return 'Under Review';
-    }
-  }
-}

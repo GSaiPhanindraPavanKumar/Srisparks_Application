@@ -9,10 +9,10 @@ class DatabaseMigrationService {
     try {
       // Note: These are individual SQL statements since Supabase RPC
       // doesn't support multiple statements in one call
-      
+
       // Create installation_projects table
       await _supabase.rpc('create_installation_projects_table');
-      
+
       print('✅ Installation tables created successfully');
       print('📋 Created tables:');
       print('   - installation_projects');
@@ -21,10 +21,11 @@ class DatabaseMigrationService {
       print('   - installation_work_activities');
       print('🔐 Row Level Security policies applied');
       print('📈 Performance indexes created');
-      
     } catch (e) {
       print('❌ Error creating installation tables: $e');
-      print('💡 Please run the SQL migration script manually in Supabase Dashboard');
+      print(
+        '💡 Please run the SQL migration script manually in Supabase Dashboard',
+      );
       rethrow;
     }
   }
@@ -34,9 +35,9 @@ class DatabaseMigrationService {
     try {
       final tables = [
         'installation_projects',
-        'installation_work_items', 
+        'installation_work_items',
         'installation_material_usage',
-        'installation_work_activities'
+        'installation_work_activities',
       ];
 
       for (String table in tables) {
@@ -58,7 +59,8 @@ class DatabaseMigrationService {
   }
 
   /// Creates a sample installation project for testing
-  Future<void> createSampleInstallationProject(String customerId, {
+  Future<void> createSampleInstallationProject(
+    String customerId, {
     String customerName = 'Sample Customer',
     String customerAddress = '123 Sample Street, Sample City, 12345',
     double siteLatitude = 17.3850,
@@ -164,7 +166,6 @@ class DatabaseMigrationService {
       print('🎉 Sample installation project created successfully');
       print('📋 Project ID: $projectId');
       print('💼 Work items created: ${workItems.length}');
-      
     } catch (e) {
       print('❌ Error creating sample project: $e');
       rethrow;

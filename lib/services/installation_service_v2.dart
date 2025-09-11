@@ -2,35 +2,38 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/installation_models_v2.dart';
-import '../models/installation_support_models.dart' as support_models;
+import '../models/installation_support_models.dart';
 
 /// Enhanced Installation Service V2 - Complete Redesign
 /// Features: Real-time updates, mobile-first, advanced analytics, offline support
 class InstallationServiceV2 {
   final SupabaseClient _supabase = Supabase.instance.client;
-  
+
   // Real-time subscriptions
   final Map<String, StreamSubscription> _subscriptions = {};
-  
+
   // Controllers for real-time data streams
-  final StreamController<List<InstallationProjectV2>> _projectsController = 
+  final StreamController<List<InstallationProjectV2>> _projectsController =
       StreamController<List<InstallationProjectV2>>.broadcast();
-  final StreamController<List<InstallationWorkPhase>> _phasesController = 
+  final StreamController<List<InstallationWorkPhase>> _phasesController =
       StreamController<List<InstallationWorkPhase>>.broadcast();
-  final StreamController<List<InstallationTeam>> _teamsController = 
+  final StreamController<List<InstallationTeam>> _teamsController =
       StreamController<List<InstallationTeam>>.broadcast();
-  final StreamController<List<InstallationActivity>> _activitiesController = 
+  final StreamController<List<InstallationActivity>> _activitiesController =
       StreamController<List<InstallationActivity>>.broadcast();
 
   // Getters for real-time streams
-  Stream<List<InstallationProjectV2>> get projectsStream => _projectsController.stream;
-  Stream<List<InstallationWorkPhase>> get phasesStream => _phasesController.stream;
+  Stream<List<InstallationProjectV2>> get projectsStream =>
+      _projectsController.stream;
+  Stream<List<InstallationWorkPhase>> get phasesStream =>
+      _phasesController.stream;
   Stream<List<InstallationTeam>> get teamsStream => _teamsController.stream;
-  Stream<List<InstallationActivity>> get activitiesStream => _activitiesController.stream;
+  Stream<List<InstallationActivity>> get activitiesStream =>
+      _activitiesController.stream;
 
   // Cache for offline support
   final Map<String, dynamic> _cache = {};
-  
+
   // Location tracking
   Position? _lastKnownPosition;
   Timer? _locationTimer;
@@ -48,12 +51,12 @@ class InstallationServiceV2 {
       subscription.cancel();
     });
     _subscriptions.clear();
-    
+
     _projectsController.close();
     _phasesController.close();
     _teamsController.close();
     _activitiesController.close();
-    
+
     _locationTimer?.cancel();
   }
 
@@ -104,7 +107,9 @@ class InstallationServiceV2 {
         'estimated_duration_days': estimatedDurationDays,
         'project_value': projectValue,
         'priority': priority.value,
-        'scheduled_start_date': scheduledStartDate?.toIso8601String().split('T')[0],
+        'scheduled_start_date': scheduledStartDate?.toIso8601String().split(
+          'T',
+        )[0],
         'project_manager_id': projectManagerId,
         'site_supervisor_id': siteSupervisorId,
         'assigned_office_id': userOfficeId,
@@ -128,9 +133,10 @@ class InstallationServiceV2 {
       // Log project creation activity
       await _logActivity(
         projectId: project.id,
-        activityType: support_models.ActivityType.projectStarted,
+        activityType: ActivityType.projectStarted,
         title: 'Project Created',
-        description: 'Installation project ${project.projectCode} created for ${project.customerName}',
+        description:
+            'Installation project ${project.projectCode} created for ${project.customerName}',
         performedBy: userId,
       );
 
@@ -173,21 +179,31 @@ class InstallationServiceV2 {
         query = query.eq('project_manager_id', projectManagerId);
       }
       if (startDate != null) {
-        query = query.gte('scheduled_start_date', startDate.toIso8601String().split('T')[0]);
+        query = query.gte(
+          'scheduled_start_date',
+          startDate.toIso8601String().split('T')[0],
+        );
       }
       if (endDate != null) {
-        query = query.lte('scheduled_start_date', endDate.toIso8601String().split('T')[0]);
+        query = query.lte(
+          'scheduled_start_date',
+          endDate.toIso8601String().split('T')[0],
+        );
       }
       if (searchQuery != null && searchQuery.isNotEmpty) {
-        query = query.or('customer_name.ilike.%$searchQuery%,project_code.ilike.%$searchQuery%');
+        query = query.or(
+          'customer_name.ilike.%$searchQuery%,project_code.ilike.%$searchQuery%',
+        );
       }
 
       final response = await query;
-      final projects = response.map((data) => InstallationProjectV2.fromJson(data)).toList();
+      final projects = response
+          .map((data) => InstallationProjectV2.fromJson(data))
+          .toList();
 
       // Cache the results
       _cache['projects'] = projects;
-      
+
       return projects;
     } catch (e) {
       // Return cached data if available
@@ -200,7 +216,7 @@ class InstallationServiceV2 {
 
   /// Update project status with validation and logging
   Future<InstallationProjectV2> updateProjectStatus(
-    String projectId, 
+    String projectId,
     ProjectStatus newStatus, {
     String? notes,
   }) async {
@@ -210,10 +226,12 @@ class InstallationServiceV2 {
 
       // Get current project for validation
       final currentProject = await getProjectById(projectId);
-      
+
       // Validate status transition
       if (!_isValidStatusTransition(currentProject.status, newStatus)) {
-        throw Exception('Invalid status transition from ${currentProject.status.displayName} to ${newStatus.displayName}');
+        throw Exception(
+          'Invalid status transition from ${currentProject.status.displayName} to ${newStatus.displayName}',
+        );
       }
 
       final updateData = {
@@ -224,7 +242,9 @@ class InstallationServiceV2 {
 
       // Set completion date if project is completed
       if (newStatus == ProjectStatus.completed) {
-        updateData['actual_completion_date'] = DateTime.now().toIso8601String().split('T')[0];
+        updateData['actual_completion_date'] = DateTime.now()
+            .toIso8601String()
+            .split('T')[0];
       }
 
       final response = await _supabase
@@ -239,11 +259,12 @@ class InstallationServiceV2 {
       // Log status change activity
       await _logActivity(
         projectId: projectId,
-        activityType: newStatus == ProjectStatus.completed 
-            ? support_models.ActivityType.projectCompleted 
-            : support_models.ActivityType.locationCheck, // Generic status change
+        activityType: newStatus == ProjectStatus.completed
+            ? ActivityType.projectCompleted
+            : ActivityType.locationCheck, // Generic status change
         title: 'Project Status Updated',
-        description: 'Project status changed from ${currentProject.status.displayName} to ${newStatus.displayName}${notes != null ? '. Notes: $notes' : ''}',
+        description:
+            'Project status changed from ${currentProject.status.displayName} to ${newStatus.displayName}${notes != null ? '. Notes: $notes' : ''}',
         performedBy: userId,
       );
 
@@ -279,11 +300,13 @@ class InstallationServiceV2 {
           .eq('project_id', projectId)
           .order('phase_order');
 
-      final phases = response.map((data) => InstallationWorkPhase.fromJson(data)).toList();
+      final phases = response
+          .map((data) => InstallationWorkPhase.fromJson(data))
+          .toList();
 
       // Cache the phases
       _cache['phases_$projectId'] = phases;
-      
+
       return phases;
     } catch (e) {
       // Return cached data if available
@@ -307,9 +330,11 @@ class InstallationServiceV2 {
 
       // Get current phase for validation
       final currentPhase = await getPhaseById(phaseId);
-      
+
       // Validate prerequisites
-      if (!currentPhase.canStart(await getProjectPhases(currentPhase.projectId))) {
+      if (!currentPhase.canStart(
+        await getProjectPhases(currentPhase.projectId),
+      )) {
         throw Exception('Cannot start phase: Prerequisites not completed');
       }
 
@@ -325,7 +350,9 @@ class InstallationServiceV2 {
         'status': PhaseStatus.inProgress.value,
         'actual_start_date': DateTime.now().toIso8601String().split('T')[0],
         'lead_technician_id': leadTechnicianId,
-        'assigned_team_members': teamMemberIds.map((id) => {'user_id': id}).toList(),
+        'assigned_team_members': teamMemberIds
+            .map((id) => {'user_id': id})
+            .toList(),
         'work_instructions': workInstructions,
         'updated_by': userId,
         'updated_at': DateTime.now().toIso8601String(),
@@ -346,7 +373,8 @@ class InstallationServiceV2 {
         phaseId: phaseId,
         activityType: ActivityType.phaseStarted,
         title: 'Phase Started',
-        description: 'Work phase ${currentPhase.phaseName} started by ${await _getUserName(leadTechnicianId)}',
+        description:
+            'Work phase ${currentPhase.phaseName} started by ${await _getUserName(leadTechnicianId)}',
         performedBy: userId,
       );
 
@@ -358,7 +386,7 @@ class InstallationServiceV2 {
 
   /// Update phase progress with automatic project progress calculation
   Future<InstallationWorkPhase> updatePhaseProgress(
-    String phaseId, 
+    String phaseId,
     double progressPercentage, {
     String? notes,
     List<String>? completedCheckpoints,
@@ -383,7 +411,9 @@ class InstallationServiceV2 {
 
       if (progressPercentage == 100.0) {
         updateData['status'] = PhaseStatus.completed.value;
-        updateData['actual_completion_date'] = DateTime.now().toIso8601String().split('T')[0];
+        updateData['actual_completion_date'] = DateTime.now()
+            .toIso8601String()
+            .split('T')[0];
       }
 
       final response = await _supabase
@@ -402,11 +432,12 @@ class InstallationServiceV2 {
       await _logActivity(
         projectId: updatedPhase.projectId,
         phaseId: phaseId,
-        activityType: progressPercentage == 100.0 
-            ? ActivityType.phaseCompleted 
+        activityType: progressPercentage == 100.0
+            ? ActivityType.phaseCompleted
             : ActivityType.locationCheck, // Generic progress update
         title: 'Phase Progress Updated',
-        description: 'Phase ${updatedPhase.phaseName} progress: ${progressPercentage.toStringAsFixed(1)}%${notes != null ? '. Notes: $notes' : ''}',
+        description:
+            'Phase ${updatedPhase.phaseName} progress: ${progressPercentage.toStringAsFixed(1)}%${notes != null ? '. Notes: $notes' : ''}',
         performedBy: userId,
       );
 
@@ -470,7 +501,8 @@ class InstallationServiceV2 {
         teamId: team.id,
         activityType: ActivityType.teamAssigned,
         title: 'Team Created',
-        description: 'Installation team ${teamName} created with ${teamMemberIds.length + 1} members',
+        description:
+            'Installation team ${teamName} created with ${teamMemberIds.length + 1} members',
         performedBy: userId,
       );
 
@@ -497,7 +529,7 @@ class InstallationServiceV2 {
 
   /// Update team availability status
   Future<InstallationTeam> updateTeamAvailability(
-    String teamId, 
+    String teamId,
     TeamAvailabilityStatus status, {
     Location? currentLocation,
   }) async {
@@ -548,7 +580,7 @@ class InstallationServiceV2 {
         projectId: projectId,
         activityType: ActivityType.locationCheck,
         title: 'Location Verified',
-        description: isWithinGeofence 
+        description: isWithinGeofence
             ? 'Location verified within project geofence'
             : 'Location outside project geofence (${project.calculateDistanceToSite(_lastKnownPosition!).toStringAsFixed(1)}m away)',
         performedBy: _supabase.auth.currentUser?.id ?? '',
@@ -600,7 +632,9 @@ class InstallationServiceV2 {
       }
 
       final response = await query;
-      return response.map((data) => InstallationActivity.fromJson(data)).toList();
+      return response
+          .map((data) => InstallationActivity.fromJson(data))
+          .toList();
     } catch (e) {
       throw Exception('Failed to fetch activities: $e');
     }
@@ -627,37 +661,61 @@ class InstallationServiceV2 {
         'timeline': {
           'scheduled_start': project.scheduledStartDate?.toIso8601String(),
           'actual_start': project.actualStartDate?.toIso8601String(),
-          'estimated_completion': project.estimatedCompletionDate?.toIso8601String(),
+          'estimated_completion': project.estimatedCompletionDate
+              ?.toIso8601String(),
           'actual_completion': project.actualCompletionDate?.toIso8601String(),
-          'days_elapsed': project.actualStartDate != null 
-              ? DateTime.now().difference(project.actualStartDate!).inDays 
+          'days_elapsed': project.actualStartDate != null
+              ? DateTime.now().difference(project.actualStartDate!).inDays
               : 0,
-          'estimated_days_remaining': project.estimatedCompletionDate != null 
-              ? project.estimatedCompletionDate!.difference(DateTime.now()).inDays 
+          'estimated_days_remaining': project.estimatedCompletionDate != null
+              ? project.estimatedCompletionDate!
+                    .difference(DateTime.now())
+                    .inDays
               : null,
         },
         'phases': {
           'total': phases.length,
-          'completed': phases.where((p) => p.status == PhaseStatus.completed).length,
-          'in_progress': phases.where((p) => p.status == PhaseStatus.inProgress).length,
-          'not_started': phases.where((p) => p.status == PhaseStatus.notStarted).length,
-          'average_progress': phases.isNotEmpty 
-              ? phases.map((p) => p.progressPercentage).reduce((a, b) => a + b) / phases.length 
+          'completed': phases
+              .where((p) => p.status == PhaseStatus.completed)
+              .length,
+          'in_progress': phases
+              .where((p) => p.status == PhaseStatus.inProgress)
+              .length,
+          'not_started': phases
+              .where((p) => p.status == PhaseStatus.notStarted)
+              .length,
+          'average_progress': phases.isNotEmpty
+              ? phases
+                        .map((p) => p.progressPercentage)
+                        .reduce((a, b) => a + b) /
+                    phases.length
               : 0.0,
         },
         'teams': {
           'total': teams.length,
-          'available': teams.where((t) => t.availabilityStatus == TeamAvailabilityStatus.available).length,
-          'busy': teams.where((t) => t.availabilityStatus == TeamAvailabilityStatus.busy).length,
-          'average_quality_score': teams.isNotEmpty 
-              ? teams.map((t) => t.averageQualityScore).reduce((a, b) => a + b) / teams.length 
+          'available': teams
+              .where(
+                (t) => t.availabilityStatus == TeamAvailabilityStatus.available,
+              )
+              .length,
+          'busy': teams
+              .where((t) => t.availabilityStatus == TeamAvailabilityStatus.busy)
+              .length,
+          'average_quality_score': teams.isNotEmpty
+              ? teams
+                        .map((t) => t.averageQualityScore)
+                        .reduce((a, b) => a + b) /
+                    teams.length
               : 0.0,
         },
         'activities': {
           'total': activities.length,
           'milestones': activities.where((a) => a.isMilestone).length,
-          'recent_24h': activities.where((a) => 
-              DateTime.now().difference(a.timestamp).inHours <= 24).length,
+          'recent_24h': activities
+              .where(
+                (a) => DateTime.now().difference(a.timestamp).inHours <= 24,
+              )
+              .length,
           'by_type': _groupActivitiesByType(activities),
         },
         'quality': {
@@ -683,7 +741,9 @@ class InstallationServiceV2 {
           .from('installation_projects_v2')
           .stream(primaryKey: ['id'])
           .listen((data) {
-            final projects = data.map((item) => InstallationProjectV2.fromJson(item)).toList();
+            final projects = data
+                .map((item) => InstallationProjectV2.fromJson(item))
+                .toList();
             _projectsController.add(projects);
           });
       _subscriptions['projects'] = projectsSubscription;
@@ -693,7 +753,9 @@ class InstallationServiceV2 {
           .from('installation_work_phases')
           .stream(primaryKey: ['id'])
           .listen((data) {
-            final phases = data.map((item) => InstallationWorkPhase.fromJson(item)).toList();
+            final phases = data
+                .map((item) => InstallationWorkPhase.fromJson(item))
+                .toList();
             _phasesController.add(phases);
           });
       _subscriptions['phases'] = phasesSubscription;
@@ -703,7 +765,9 @@ class InstallationServiceV2 {
           .from('installation_teams')
           .stream(primaryKey: ['id'])
           .listen((data) {
-            final teams = data.map((item) => InstallationTeam.fromJson(item)).toList();
+            final teams = data
+                .map((item) => InstallationTeam.fromJson(item))
+                .toList();
             _teamsController.add(teams);
           });
       _subscriptions['teams'] = teamsSubscription;
@@ -713,7 +777,9 @@ class InstallationServiceV2 {
           .from('installation_activities')
           .stream(primaryKey: ['id'])
           .listen((data) {
-            final activities = data.map((item) => InstallationActivity.fromJson(item)).toList();
+            final activities = data
+                .map((item) => InstallationActivity.fromJson(item))
+                .toList();
             _activitiesController.add(activities);
           });
       _subscriptions['activities'] = activitiesSubscription;
@@ -731,12 +797,11 @@ class InstallationServiceV2 {
         permission = await Geolocator.requestPermission();
       }
 
-      if (permission == LocationPermission.whileInUse || 
+      if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
-        
         // Get initial location
         await _getCurrentLocation();
-        
+
         // Start periodic location updates
         _locationTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
           _getCurrentLocation();
@@ -775,14 +840,21 @@ class InstallationServiceV2 {
         'project_id': projectId,
         'phase_code': 'FOUNDATION',
         'phase_name': 'Foundation & Structure',
-        'phase_description': 'Site preparation and mounting structure installation',
+        'phase_description':
+            'Site preparation and mounting structure installation',
         'phase_order': 1,
         'estimated_duration_hours': 16.0,
         'required_skills': ['structural', 'measurement'],
         'safety_requirements': ['safety_gear', 'fall_protection'],
         'quality_checkpoints': [
-          {'checkpoint_code': 'FOUNDATION_LEVEL', 'checkpoint_name': 'Foundation Level Check'},
-          {'checkpoint_code': 'STRUCTURE_ALIGNMENT', 'checkpoint_name': 'Structure Alignment'},
+          {
+            'checkpoint_code': 'FOUNDATION_LEVEL',
+            'checkpoint_name': 'Foundation Level Check',
+          },
+          {
+            'checkpoint_code': 'STRUCTURE_ALIGNMENT',
+            'checkpoint_name': 'Structure Alignment',
+          },
         ],
       },
       {
@@ -796,8 +868,14 @@ class InstallationServiceV2 {
         'required_skills': ['electrical', 'panel_handling'],
         'safety_requirements': ['safety_gear', 'electrical_safety'],
         'quality_checkpoints': [
-          {'checkpoint_code': 'PANEL_ALIGNMENT', 'checkpoint_name': 'Panel Alignment Check'},
-          {'checkpoint_code': 'CONNECTION_CHECK', 'checkpoint_name': 'Initial Connection Check'},
+          {
+            'checkpoint_code': 'PANEL_ALIGNMENT',
+            'checkpoint_name': 'Panel Alignment Check',
+          },
+          {
+            'checkpoint_code': 'CONNECTION_CHECK',
+            'checkpoint_name': 'Initial Connection Check',
+          },
         ],
       },
       {
@@ -811,8 +889,14 @@ class InstallationServiceV2 {
         'required_skills': ['electrical', 'inverter'],
         'safety_requirements': ['electrical_safety', 'lockout_tagout'],
         'quality_checkpoints': [
-          {'checkpoint_code': 'WIRING_CHECK', 'checkpoint_name': 'Wiring Verification'},
-          {'checkpoint_code': 'INVERTER_CONFIG', 'checkpoint_name': 'Inverter Configuration'},
+          {
+            'checkpoint_code': 'WIRING_CHECK',
+            'checkpoint_name': 'Wiring Verification',
+          },
+          {
+            'checkpoint_code': 'INVERTER_CONFIG',
+            'checkpoint_name': 'Inverter Configuration',
+          },
         ],
       },
       {
@@ -826,8 +910,14 @@ class InstallationServiceV2 {
         'required_skills': ['electrical', 'grounding'],
         'safety_requirements': ['electrical_safety'],
         'quality_checkpoints': [
-          {'checkpoint_code': 'EARTH_RESISTANCE', 'checkpoint_name': 'Earth Resistance Test'},
-          {'checkpoint_code': 'CONTINUITY_CHECK', 'checkpoint_name': 'Continuity Check'},
+          {
+            'checkpoint_code': 'EARTH_RESISTANCE',
+            'checkpoint_name': 'Earth Resistance Test',
+          },
+          {
+            'checkpoint_code': 'CONTINUITY_CHECK',
+            'checkpoint_name': 'Continuity Check',
+          },
         ],
       },
       {
@@ -841,8 +931,14 @@ class InstallationServiceV2 {
         'required_skills': ['electrical', 'protection'],
         'safety_requirements': ['electrical_safety', 'height_safety'],
         'quality_checkpoints': [
-          {'checkpoint_code': 'PROTECTION_TEST', 'checkpoint_name': 'Protection System Test'},
-          {'checkpoint_code': 'SURGE_RATING', 'checkpoint_name': 'Surge Rating Verification'},
+          {
+            'checkpoint_code': 'PROTECTION_TEST',
+            'checkpoint_name': 'Protection System Test',
+          },
+          {
+            'checkpoint_code': 'SURGE_RATING',
+            'checkpoint_name': 'Surge Rating Verification',
+          },
         ],
       },
       {
@@ -856,7 +952,10 @@ class InstallationServiceV2 {
         'required_skills': ['electrical', 'testing', 'commissioning'],
         'safety_requirements': ['electrical_safety'],
         'quality_checkpoints': [
-          {'checkpoint_code': 'PERFORMANCE_TEST', 'checkpoint_name': 'Performance Test'},
+          {
+            'checkpoint_code': 'PERFORMANCE_TEST',
+            'checkpoint_name': 'Performance Test',
+          },
           {'checkpoint_code': 'SAFETY_TEST', 'checkpoint_name': 'Safety Test'},
         ],
       },
@@ -872,7 +971,7 @@ class InstallationServiceV2 {
     required String projectId,
     String? phaseId,
     String? teamId,
-    required support_models.ActivityType activityType,
+    required ActivityType activityType,
     required String title,
     String? description,
     required String performedBy,
@@ -914,12 +1013,35 @@ class InstallationServiceV2 {
   bool _isValidStatusTransition(ProjectStatus current, ProjectStatus target) {
     // Define valid transitions
     const validTransitions = {
-      ProjectStatus.planning: [ProjectStatus.scheduled, ProjectStatus.onHold, ProjectStatus.cancelled],
-      ProjectStatus.scheduled: [ProjectStatus.inProgress, ProjectStatus.onHold, ProjectStatus.cancelled],
-      ProjectStatus.inProgress: [ProjectStatus.qualityCheck, ProjectStatus.onHold, ProjectStatus.cancelled],
-      ProjectStatus.qualityCheck: [ProjectStatus.customerReview, ProjectStatus.inProgress, ProjectStatus.completed],
-      ProjectStatus.customerReview: [ProjectStatus.completed, ProjectStatus.inProgress],
-      ProjectStatus.onHold: [ProjectStatus.scheduled, ProjectStatus.inProgress, ProjectStatus.cancelled],
+      ProjectStatus.planning: [
+        ProjectStatus.scheduled,
+        ProjectStatus.onHold,
+        ProjectStatus.cancelled,
+      ],
+      ProjectStatus.scheduled: [
+        ProjectStatus.inProgress,
+        ProjectStatus.onHold,
+        ProjectStatus.cancelled,
+      ],
+      ProjectStatus.inProgress: [
+        ProjectStatus.qualityCheck,
+        ProjectStatus.onHold,
+        ProjectStatus.cancelled,
+      ],
+      ProjectStatus.qualityCheck: [
+        ProjectStatus.customerReview,
+        ProjectStatus.inProgress,
+        ProjectStatus.completed,
+      ],
+      ProjectStatus.customerReview: [
+        ProjectStatus.completed,
+        ProjectStatus.inProgress,
+      ],
+      ProjectStatus.onHold: [
+        ProjectStatus.scheduled,
+        ProjectStatus.inProgress,
+        ProjectStatus.cancelled,
+      ],
       ProjectStatus.completed: [], // No transitions from completed
       ProjectStatus.cancelled: [], // No transitions from cancelled
     };
@@ -934,11 +1056,13 @@ class InstallationServiceV2 {
       if (phases.isEmpty) return;
 
       final totalProgress = phases.fold<double>(
-        0.0, 
-        (sum, phase) => sum + phase.progressPercentage
+        0.0,
+        (sum, phase) => sum + phase.progressPercentage,
       );
       final overallProgress = totalProgress / phases.length;
-      final completedPhases = phases.where((p) => p.status == PhaseStatus.completed).length;
+      final completedPhases = phases
+          .where((p) => p.status == PhaseStatus.completed)
+          .length;
 
       await _supabase
           .from('installation_projects_v2')
@@ -988,7 +1112,9 @@ class InstallationServiceV2 {
   }
 
   /// Group activities by type for analytics
-  Map<String, int> _groupActivitiesByType(List<InstallationActivity> activities) {
+  Map<String, int> _groupActivitiesByType(
+    List<InstallationActivity> activities,
+  ) {
     final grouped = <String, int>{};
     for (final activity in activities) {
       final type = activity.activityType.value;

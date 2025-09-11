@@ -397,11 +397,14 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
                           Icons.currency_rupee,
                           '₹${customer.amountTotal!.toStringAsFixed(0)}',
                         ),
-                      if (customer.currentPhase == 'amount' && customer.calculatedPaymentStatus != 'pending')
+                      if (customer.currentPhase == 'amount' &&
+                          customer.calculatedPaymentStatus != 'pending')
                         _buildInfoRow(
                           Icons.payment,
                           '${customer.calculatedPaymentStatus.toUpperCase()}',
-                          color: customer.calculatedPaymentStatus == 'completed' ? Colors.green : Colors.orange,
+                          color: customer.calculatedPaymentStatus == 'completed'
+                              ? Colors.green
+                              : Colors.orange,
                         ),
                     ],
                   ),
@@ -787,31 +790,49 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
             mainAxisSize: MainAxisSize.min,
             children: [
               // Basic Amount Information
-              _buildAmountDetailCard(
-                'Project Information',
-                [
-                  _buildDetailRow('Customer Name', customer.name),
-                  _buildDetailRow('Final Capacity', customer.amountKw != null 
-                      ? '${customer.amountKw} kW' : 'Not set'),
-                  _buildDetailRow('Total Project Amount', customer.amountTotal != null 
-                      ? '₹${customer.amountTotal!.toStringAsFixed(0)}' : 'Not set'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              
-              // Payment Status Summary
-              if (customer.amountTotal != null && customer.amountTotal! > 0) ...[
-                _buildAmountDetailCard(
-                  'Payment Status',
-                  [
-                    _buildDetailRow('Total Amount', '₹${customer.amountTotal!.toStringAsFixed(0)}'),
-                    _buildDetailRow('Amount Paid', '₹${customer.totalAmountPaid.toStringAsFixed(0)}'),
-                    _buildDetailRow('Pending Amount', '₹${customer.pendingAmount.toStringAsFixed(0)}'),
-                    _buildDetailRow('Payment Status', customer.calculatedPaymentStatus.toUpperCase(),
-                        valueColor: customer.calculatedPaymentStatus == 'completed' ? Colors.green : 
-                                   customer.calculatedPaymentStatus == 'partial' ? Colors.orange : Colors.red),
-                  ],
+              _buildAmountDetailCard('Project Information', [
+                _buildDetailRow('Customer Name', customer.name),
+                _buildDetailRow(
+                  'Final Capacity',
+                  customer.amountKw != null
+                      ? '${customer.amountKw} kW'
+                      : 'Not set',
                 ),
+                _buildDetailRow(
+                  'Total Project Amount',
+                  customer.amountTotal != null
+                      ? '₹${customer.amountTotal!.toStringAsFixed(0)}'
+                      : 'Not set',
+                ),
+              ]),
+              const SizedBox(height: 16),
+
+              // Payment Status Summary
+              if (customer.amountTotal != null &&
+                  customer.amountTotal! > 0) ...[
+                _buildAmountDetailCard('Payment Status', [
+                  _buildDetailRow(
+                    'Total Amount',
+                    '₹${customer.amountTotal!.toStringAsFixed(0)}',
+                  ),
+                  _buildDetailRow(
+                    'Amount Paid',
+                    '₹${customer.totalAmountPaid.toStringAsFixed(0)}',
+                  ),
+                  _buildDetailRow(
+                    'Pending Amount',
+                    '₹${customer.pendingAmount.toStringAsFixed(0)}',
+                  ),
+                  _buildDetailRow(
+                    'Payment Status',
+                    customer.calculatedPaymentStatus.toUpperCase(),
+                    valueColor: customer.calculatedPaymentStatus == 'completed'
+                        ? Colors.green
+                        : customer.calculatedPaymentStatus == 'partial'
+                        ? Colors.orange
+                        : Colors.red,
+                  ),
+                ]),
                 const SizedBox(height: 16),
               ],
 
@@ -819,25 +840,27 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
               if (customer.paymentHistory.isNotEmpty) ...[
                 _buildAmountDetailCard(
                   'Payment History (${customer.paymentHistory.length} payments)',
-                  customer.paymentHistory.map((payment) => 
-                    _buildPaymentHistoryItem(payment)
-                  ).toList(),
+                  customer.paymentHistory
+                      .map((payment) => _buildPaymentHistoryItem(payment))
+                      .toList(),
                 ),
                 const SizedBox(height: 16),
               ],
 
               // Additional Information
-              if (customer.amountNotes != null || customer.amountClearedDate != null) ...[
-                _buildAmountDetailCard(
-                  'Additional Information',
-                  [
-                    if (customer.amountClearedDate != null)
-                      _buildDetailRow('Phase Cleared On', 
-                          DateFormat('dd/MM/yyyy HH:mm').format(customer.amountClearedDate!)),
-                    if (customer.amountNotes != null)
-                      _buildDetailRow('Notes', customer.amountNotes!),
-                  ],
-                ),
+              if (customer.amountNotes != null ||
+                  customer.amountClearedDate != null) ...[
+                _buildAmountDetailCard('Additional Information', [
+                  if (customer.amountClearedDate != null)
+                    _buildDetailRow(
+                      'Phase Cleared On',
+                      DateFormat(
+                        'dd/MM/yyyy HH:mm',
+                      ).format(customer.amountClearedDate!),
+                    ),
+                  if (customer.amountNotes != null)
+                    _buildDetailRow('Notes', customer.amountNotes!),
+                ]),
               ],
             ],
           ),
@@ -917,7 +940,9 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
 
   Widget _buildPaymentHistoryItem(Map<String, dynamic> payment) {
     final amount = payment['amount']?.toDouble() ?? 0.0;
-    final date = payment['date'] != null ? DateTime.parse(payment['date']) : null;
+    final date = payment['date'] != null
+        ? DateTime.parse(payment['date'])
+        : null;
     final utr = payment['utr'] ?? '';
     final notes = payment['notes'] ?? '';
 
@@ -946,10 +971,7 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
               if (date != null)
                 Text(
                   DateFormat('dd/MM/yyyy').format(date),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
             ],
           ),
@@ -957,20 +979,14 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
             const SizedBox(height: 4),
             Text(
               'UTR: $utr',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[700],
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
             ),
           ],
           if (notes.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
               'Notes: $notes',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[700],
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
             ),
           ],
         ],

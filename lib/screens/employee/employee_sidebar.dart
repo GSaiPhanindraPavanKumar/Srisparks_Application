@@ -46,11 +46,6 @@ class EmployeeSidebar extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, AppRoutes.myWork),
           ),
           ListTile(
-            leading: const Icon(Icons.construction),
-            title: const Text('My Installations'),
-            onTap: () => Navigator.pushNamed(context, AppRoutes.employeeInstallations),
-          ),
-          ListTile(
             leading: const Icon(Icons.add_business),
             title: const Text('New Application'),
             onTap: () => Navigator.pushNamed(

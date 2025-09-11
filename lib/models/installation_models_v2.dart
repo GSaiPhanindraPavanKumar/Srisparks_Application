@@ -5,26 +5,26 @@ class InstallationProjectV2 {
   final String id;
   final String customerId;
   final String projectCode;
-  
+
   // Customer Information
   final String customerName;
   final String customerAddress;
   final String? customerPhone;
   final String? customerEmail;
-  
+
   // Site Information
   final double siteLatitude;
   final double siteLongitude;
   final String? siteAddress;
   final String? siteAccessInstructions;
   final double geofenceRadius;
-  
+
   // Project Details
   final double systemCapacityKw;
   final int estimatedDurationDays;
   final int? actualDurationDays;
   final double? projectValue;
-  
+
   // Status and Timeline
   final ProjectStatus status;
   final ProjectPriority priority;
@@ -32,29 +32,29 @@ class InstallationProjectV2 {
   final DateTime? actualStartDate;
   final DateTime? estimatedCompletionDate;
   final DateTime? actualCompletionDate;
-  
+
   // Progress Tracking
   final double overallProgressPercentage;
   final int totalPhases;
   final int completedPhases;
   final int totalCheckpoints;
   final int passedCheckpoints;
-  
+
   // Team Assignment
   final String? projectManagerId;
   final String? siteSupervisorId;
   final String? assignedOfficeId;
-  
+
   // Quality and Safety
   final double qualityScore;
   final int safetyIncidents;
   final double? customerSatisfactionScore;
-  
+
   // Documentation
   final String? projectNotes;
   final List<String> specialRequirements;
   final List<ProjectAttachment> attachments;
-  
+
   // Timestamps
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -123,20 +123,23 @@ class InstallationProjectV2 {
       actualDurationDays: json['actual_duration_days'] as int?,
       projectValue: (json['project_value'] as num?)?.toDouble(),
       status: ProjectStatus.fromString(json['status'] as String? ?? 'planning'),
-      priority: ProjectPriority.fromString(json['priority'] as String? ?? 'medium'),
-      scheduledStartDate: json['scheduled_start_date'] != null 
-          ? DateTime.parse(json['scheduled_start_date'] as String) 
+      priority: ProjectPriority.fromString(
+        json['priority'] as String? ?? 'medium',
+      ),
+      scheduledStartDate: json['scheduled_start_date'] != null
+          ? DateTime.parse(json['scheduled_start_date'] as String)
           : null,
-      actualStartDate: json['actual_start_date'] != null 
-          ? DateTime.parse(json['actual_start_date'] as String) 
+      actualStartDate: json['actual_start_date'] != null
+          ? DateTime.parse(json['actual_start_date'] as String)
           : null,
-      estimatedCompletionDate: json['estimated_completion_date'] != null 
-          ? DateTime.parse(json['estimated_completion_date'] as String) 
+      estimatedCompletionDate: json['estimated_completion_date'] != null
+          ? DateTime.parse(json['estimated_completion_date'] as String)
           : null,
-      actualCompletionDate: json['actual_completion_date'] != null 
-          ? DateTime.parse(json['actual_completion_date'] as String) 
+      actualCompletionDate: json['actual_completion_date'] != null
+          ? DateTime.parse(json['actual_completion_date'] as String)
           : null,
-      overallProgressPercentage: (json['overall_progress_percentage'] as num?)?.toDouble() ?? 0.0,
+      overallProgressPercentage:
+          (json['overall_progress_percentage'] as num?)?.toDouble() ?? 0.0,
       totalPhases: json['total_phases'] as int? ?? 0,
       completedPhases: json['completed_phases'] as int? ?? 0,
       totalCheckpoints: json['total_checkpoints'] as int? ?? 0,
@@ -146,7 +149,8 @@ class InstallationProjectV2 {
       assignedOfficeId: json['assigned_office_id'] as String?,
       qualityScore: (json['quality_score'] as num?)?.toDouble() ?? 0.0,
       safetyIncidents: json['safety_incidents'] as int? ?? 0,
-      customerSatisfactionScore: (json['customer_satisfaction_score'] as num?)?.toDouble(),
+      customerSatisfactionScore: (json['customer_satisfaction_score'] as num?)
+          ?.toDouble(),
       projectNotes: json['project_notes'] as String?,
       specialRequirements: _parseStringList(json['special_requirements']),
       attachments: _parseAttachments(json['attachments']),
@@ -177,10 +181,16 @@ class InstallationProjectV2 {
       'project_value': projectValue,
       'status': status.value,
       'priority': priority.value,
-      'scheduled_start_date': scheduledStartDate?.toIso8601String().split('T')[0],
+      'scheduled_start_date': scheduledStartDate?.toIso8601String().split(
+        'T',
+      )[0],
       'actual_start_date': actualStartDate?.toIso8601String().split('T')[0],
-      'estimated_completion_date': estimatedCompletionDate?.toIso8601String().split('T')[0],
-      'actual_completion_date': actualCompletionDate?.toIso8601String().split('T')[0],
+      'estimated_completion_date': estimatedCompletionDate
+          ?.toIso8601String()
+          .split('T')[0],
+      'actual_completion_date': actualCompletionDate?.toIso8601String().split(
+        'T',
+      )[0],
       'overall_progress_percentage': overallProgressPercentage,
       'total_phases': totalPhases,
       'completed_phases': completedPhases,
@@ -221,12 +231,12 @@ class InstallationProjectV2 {
   // Calculate overall progress based on phases and checkpoints
   double calculateOverallProgress(List<InstallationWorkPhase> phases) {
     if (phases.isEmpty) return 0.0;
-    
+
     final totalProgress = phases.fold<double>(
-      0.0, 
-      (sum, phase) => sum + phase.progressPercentage
+      0.0,
+      (sum, phase) => sum + phase.progressPercentage,
     );
-    
+
     return totalProgress / phases.length;
   }
 
@@ -297,19 +307,23 @@ class InstallationProjectV2 {
       siteLatitude: siteLatitude ?? this.siteLatitude,
       siteLongitude: siteLongitude ?? this.siteLongitude,
       siteAddress: siteAddress ?? this.siteAddress,
-      siteAccessInstructions: siteAccessInstructions ?? this.siteAccessInstructions,
+      siteAccessInstructions:
+          siteAccessInstructions ?? this.siteAccessInstructions,
       geofenceRadius: geofenceRadius ?? this.geofenceRadius,
       systemCapacityKw: systemCapacityKw ?? this.systemCapacityKw,
-      estimatedDurationDays: estimatedDurationDays ?? this.estimatedDurationDays,
+      estimatedDurationDays:
+          estimatedDurationDays ?? this.estimatedDurationDays,
       actualDurationDays: actualDurationDays ?? this.actualDurationDays,
       projectValue: projectValue ?? this.projectValue,
       status: status ?? this.status,
       priority: priority ?? this.priority,
       scheduledStartDate: scheduledStartDate ?? this.scheduledStartDate,
       actualStartDate: actualStartDate ?? this.actualStartDate,
-      estimatedCompletionDate: estimatedCompletionDate ?? this.estimatedCompletionDate,
+      estimatedCompletionDate:
+          estimatedCompletionDate ?? this.estimatedCompletionDate,
       actualCompletionDate: actualCompletionDate ?? this.actualCompletionDate,
-      overallProgressPercentage: overallProgressPercentage ?? this.overallProgressPercentage,
+      overallProgressPercentage:
+          overallProgressPercentage ?? this.overallProgressPercentage,
       totalPhases: totalPhases ?? this.totalPhases,
       completedPhases: completedPhases ?? this.completedPhases,
       totalCheckpoints: totalCheckpoints ?? this.totalCheckpoints,
@@ -319,7 +333,8 @@ class InstallationProjectV2 {
       assignedOfficeId: assignedOfficeId ?? this.assignedOfficeId,
       qualityScore: qualityScore ?? this.qualityScore,
       safetyIncidents: safetyIncidents ?? this.safetyIncidents,
-      customerSatisfactionScore: customerSatisfactionScore ?? this.customerSatisfactionScore,
+      customerSatisfactionScore:
+          customerSatisfactionScore ?? this.customerSatisfactionScore,
       projectNotes: projectNotes ?? this.projectNotes,
       specialRequirements: specialRequirements ?? this.specialRequirements,
       attachments: attachments ?? this.attachments,
@@ -342,7 +357,7 @@ class InstallationWorkPhase {
   final List<String> prerequisitePhases;
   final PhaseStatus status;
   final double progressPercentage;
-  
+
   // Timeline
   final DateTime? estimatedStartDate;
   final DateTime? actualStartDate;
@@ -350,32 +365,32 @@ class InstallationWorkPhase {
   final double actualDurationHours;
   final DateTime? estimatedCompletionDate;
   final DateTime? actualCompletionDate;
-  
+
   // Team Assignment
   final String? leadTechnicianId;
   final List<TeamMember> assignedTeamMembers;
   final List<String> requiredSkills;
-  
+
   // Location and Safety
   final String? workLocationDescription;
   final List<String> safetyRequirements;
   final List<String> requiredEquipment;
-  
+
   // Quality Control
   final List<QualityCheckpoint> qualityCheckpoints;
   final List<String> passedCheckpoints;
   final double? qualityScore;
-  
+
   // Materials and Resources
   final List<MaterialRequirement> requiredMaterials;
   final List<MaterialAllocation> allocatedMaterials;
   final List<MaterialUsage> usedMaterials;
-  
+
   // Documentation
   final String? workInstructions;
   final String? completionNotes;
   final List<PhasePhoto> phasePhotos;
-  
+
   // Timestamps
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -428,21 +443,26 @@ class InstallationWorkPhase {
       phaseDescription: json['phase_description'] as String?,
       phaseOrder: json['phase_order'] as int,
       prerequisitePhases: _parseStringList(json['prerequisite_phases']),
-      status: PhaseStatus.fromString(json['status'] as String? ?? 'not_started'),
-      progressPercentage: (json['progress_percentage'] as num?)?.toDouble() ?? 0.0,
-      estimatedStartDate: json['estimated_start_date'] != null 
-          ? DateTime.parse(json['estimated_start_date'] as String) 
+      status: PhaseStatus.fromString(
+        json['status'] as String? ?? 'not_started',
+      ),
+      progressPercentage:
+          (json['progress_percentage'] as num?)?.toDouble() ?? 0.0,
+      estimatedStartDate: json['estimated_start_date'] != null
+          ? DateTime.parse(json['estimated_start_date'] as String)
           : null,
-      actualStartDate: json['actual_start_date'] != null 
-          ? DateTime.parse(json['actual_start_date'] as String) 
+      actualStartDate: json['actual_start_date'] != null
+          ? DateTime.parse(json['actual_start_date'] as String)
           : null,
-      estimatedDurationHours: (json['estimated_duration_hours'] as num?)?.toDouble(),
-      actualDurationHours: (json['actual_duration_hours'] as num?)?.toDouble() ?? 0.0,
-      estimatedCompletionDate: json['estimated_completion_date'] != null 
-          ? DateTime.parse(json['estimated_completion_date'] as String) 
+      estimatedDurationHours: (json['estimated_duration_hours'] as num?)
+          ?.toDouble(),
+      actualDurationHours:
+          (json['actual_duration_hours'] as num?)?.toDouble() ?? 0.0,
+      estimatedCompletionDate: json['estimated_completion_date'] != null
+          ? DateTime.parse(json['estimated_completion_date'] as String)
           : null,
-      actualCompletionDate: json['actual_completion_date'] != null 
-          ? DateTime.parse(json['actual_completion_date'] as String) 
+      actualCompletionDate: json['actual_completion_date'] != null
+          ? DateTime.parse(json['actual_completion_date'] as String)
           : null,
       leadTechnicianId: json['lead_technician_id'] as String?,
       assignedTeamMembers: _parseTeamMembers(json['assigned_team_members']),
@@ -454,7 +474,9 @@ class InstallationWorkPhase {
       passedCheckpoints: _parseStringList(json['passed_checkpoints']),
       qualityScore: (json['quality_score'] as num?)?.toDouble(),
       requiredMaterials: _parseMaterialRequirements(json['required_materials']),
-      allocatedMaterials: _parseMaterialAllocations(json['allocated_materials']),
+      allocatedMaterials: _parseMaterialAllocations(
+        json['allocated_materials'],
+      ),
       usedMaterials: _parseMaterialUsage(json['used_materials']),
       workInstructions: json['work_instructions'] as String?,
       completionNotes: json['completion_notes'] as String?,
@@ -477,23 +499,35 @@ class InstallationWorkPhase {
       'prerequisite_phases': prerequisitePhases,
       'status': status.value,
       'progress_percentage': progressPercentage,
-      'estimated_start_date': estimatedStartDate?.toIso8601String().split('T')[0],
+      'estimated_start_date': estimatedStartDate?.toIso8601String().split(
+        'T',
+      )[0],
       'actual_start_date': actualStartDate?.toIso8601String().split('T')[0],
       'estimated_duration_hours': estimatedDurationHours,
       'actual_duration_hours': actualDurationHours,
-      'estimated_completion_date': estimatedCompletionDate?.toIso8601String().split('T')[0],
-      'actual_completion_date': actualCompletionDate?.toIso8601String().split('T')[0],
+      'estimated_completion_date': estimatedCompletionDate
+          ?.toIso8601String()
+          .split('T')[0],
+      'actual_completion_date': actualCompletionDate?.toIso8601String().split(
+        'T',
+      )[0],
       'lead_technician_id': leadTechnicianId,
-      'assigned_team_members': assignedTeamMembers.map((tm) => tm.toJson()).toList(),
+      'assigned_team_members': assignedTeamMembers
+          .map((tm) => tm.toJson())
+          .toList(),
       'required_skills': requiredSkills,
       'work_location_description': workLocationDescription,
       'safety_requirements': safetyRequirements,
       'required_equipment': requiredEquipment,
-      'quality_checkpoints': qualityCheckpoints.map((qc) => qc.toJson()).toList(),
+      'quality_checkpoints': qualityCheckpoints
+          .map((qc) => qc.toJson())
+          .toList(),
       'passed_checkpoints': passedCheckpoints,
       'quality_score': qualityScore,
       'required_materials': requiredMaterials.map((mr) => mr.toJson()).toList(),
-      'allocated_materials': allocatedMaterials.map((ma) => ma.toJson()).toList(),
+      'allocated_materials': allocatedMaterials
+          .map((ma) => ma.toJson())
+          .toList(),
       'used_materials': usedMaterials.map((mu) => mu.toJson()).toList(),
       'work_instructions': workInstructions,
       'completion_notes': completionNotes,
@@ -563,18 +597,18 @@ class InstallationWorkPhase {
   // Check if phase can be started based on prerequisites
   bool canStart(List<InstallationWorkPhase> allPhases) {
     if (prerequisitePhases.isEmpty) return true;
-    
+
     for (final prereq in prerequisitePhases) {
       final prereqPhase = allPhases.firstWhere(
         (phase) => phase.phaseCode == prereq,
         orElse: () => throw Exception('Prerequisite phase $prereq not found'),
       );
-      
+
       if (prereqPhase.status != PhaseStatus.completed) {
         return false;
       }
     }
-    
+
     return true;
   }
 
@@ -583,7 +617,7 @@ class InstallationWorkPhase {
     if (estimatedStartDate == null || estimatedDurationHours == null) {
       return null;
     }
-    
+
     // Assuming 8 hours work per day
     final days = (estimatedDurationHours! / 8).ceil();
     return estimatedStartDate!.add(Duration(days: days));
@@ -651,15 +685,18 @@ class InstallationTeam {
       assignedPhases: _parseStringList(json['assigned_phases']),
       currentWorkload: (json['current_workload'] as num?)?.toDouble() ?? 0.0,
       availabilityStatus: TeamAvailabilityStatus.fromString(
-        json['availability_status'] as String? ?? 'available'
+        json['availability_status'] as String? ?? 'available',
       ),
       completedPhases: json['completed_phases'] as int? ?? 0,
-      averageQualityScore: (json['average_quality_score'] as num?)?.toDouble() ?? 0.0,
-      onTimeCompletionRate: (json['on_time_completion_rate'] as num?)?.toDouble() ?? 0.0,
-      lastKnownLocation: json['last_known_location'] != null 
-          ? Location.fromJson(json['last_known_location']) 
+      averageQualityScore:
+          (json['average_quality_score'] as num?)?.toDouble() ?? 0.0,
+      onTimeCompletionRate:
+          (json['on_time_completion_rate'] as num?)?.toDouble() ?? 0.0,
+      lastKnownLocation: json['last_known_location'] != null
+          ? Location.fromJson(json['last_known_location'])
           : null,
-      communicationPreferences: json['communication_preferences'] as Map<String, dynamic>? ?? {},
+      communicationPreferences:
+          json['communication_preferences'] as Map<String, dynamic>? ?? {},
       createdAt: DateTime.parse(json['created_at'] as String),
       createdBy: json['created_by'] as String?,
     );
@@ -701,10 +738,9 @@ class InstallationTeam {
   static Map<String, double> _parseSkillMatrix(dynamic json) {
     if (json == null) return {};
     if (json is Map) {
-      return json.map((key, value) => MapEntry(
-        key.toString(), 
-        (value as num).toDouble()
-      ));
+      return json.map(
+        (key, value) => MapEntry(key.toString(), (value as num).toDouble()),
+      );
     }
     return {};
   }

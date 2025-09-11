@@ -15,10 +15,12 @@ class AssignInstallationWorkScreen extends StatefulWidget {
   });
 
   @override
-  State<AssignInstallationWorkScreen> createState() => _AssignInstallationWorkScreenState();
+  State<AssignInstallationWorkScreen> createState() =>
+      _AssignInstallationWorkScreenState();
 }
 
-class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScreen> {
+class _AssignInstallationWorkScreenState
+    extends State<AssignInstallationWorkScreen> {
   final InstallationService _installationService = InstallationService();
   final UserService _userService = UserService();
 
@@ -40,17 +42,22 @@ class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScr
       final allUsers = await _userService.getUsersByOffice(
         widget.currentUser.officeId!,
       );
-      
+
       // Filter users to only include employees and leads
-      _availableEmployees = allUsers.where((user) => 
-        user.role == UserRole.employee || user.role == UserRole.lead
-      ).toList();
+      _availableEmployees = allUsers
+          .where(
+            (user) =>
+                user.role == UserRole.employee || user.role == UserRole.lead,
+          )
+          .toList();
 
       // Initialize assignments for each work type
       for (var workItem in widget.project.workItems) {
         _assignments[workItem.id] = WorkAssignment(
           workItem: workItem,
-          leadEmployeeId: workItem.leadEmployeeId.isNotEmpty ? workItem.leadEmployeeId : null,
+          leadEmployeeId: workItem.leadEmployeeId.isNotEmpty
+              ? workItem.leadEmployeeId
+              : null,
           teamMemberIds: List.from(workItem.teamMemberIds),
         );
       }
@@ -83,7 +90,10 @@ class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScr
                     )
                   : const Text(
                       'Save',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
             ),
         ],
@@ -159,14 +169,19 @@ class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScr
                           backgroundColor: isLead ? Colors.orange : Colors.blue,
                           child: Text(
                             employee.name[0].toUpperCase(),
-                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                         label: Text(
                           employee.name,
                           style: const TextStyle(fontSize: 12),
                         ),
-                        backgroundColor: isLead ? Colors.orange[50] : Colors.blue[50],
+                        backgroundColor: isLead
+                            ? Colors.orange[50]
+                            : Colors.blue[50],
                       );
                     }).toList(),
                   ),
@@ -180,14 +195,13 @@ class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScr
           // Work assignments
           Text(
             'Work Assignments',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
 
-          ...widget.project.workItems.map((workItem) => _buildWorkAssignmentCard(workItem)),
+          ...widget.project.workItems.map(
+            (workItem) => _buildWorkAssignmentCard(workItem),
+          ),
         ],
       ),
     );
@@ -196,7 +210,9 @@ class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScr
   Widget _buildWorkAssignmentCard(InstallationWorkItem workItem) {
     final assignment = _assignments[workItem.id]!;
     final leadEmployee = assignment.leadEmployeeId != null
-        ? _availableEmployees.firstWhere((e) => e.id == assignment.leadEmployeeId)
+        ? _availableEmployees.firstWhere(
+            (e) => e.id == assignment.leadEmployeeId,
+          )
         : null;
 
     return Card(
@@ -209,10 +225,7 @@ class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScr
             // Work type header
             Row(
               children: [
-                Icon(
-                  _getWorkTypeIcon(workItem.workType),
-                  color: Colors.indigo,
-                ),
+                Icon(_getWorkTypeIcon(workItem.workType), color: Colors.indigo),
                 const SizedBox(width: 8),
                 Text(
                   workItem.workType.displayName,
@@ -228,7 +241,9 @@ class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScr
                       workItem.status.displayName,
                       style: const TextStyle(fontSize: 10),
                     ),
-                    backgroundColor: _getStatusColor(workItem.status).withOpacity(0.1),
+                    backgroundColor: _getStatusColor(
+                      workItem.status,
+                    ).withOpacity(0.1),
                   ),
               ],
             ),
@@ -257,28 +272,42 @@ class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScr
                   hint: const Text('Select Team Lead'),
                   isExpanded: true,
                   items: _availableEmployees
-                      .where((employee) => employee.role == UserRole.lead || employee.role == UserRole.employee)
+                      .where(
+                        (employee) =>
+                            employee.role == UserRole.lead ||
+                            employee.role == UserRole.employee,
+                      )
                       .map((employee) {
-                    return DropdownMenuItem<String>(
-                      value: employee.id,
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 12,
-                            backgroundColor: employee.role == UserRole.lead ? Colors.orange : Colors.blue,
-                            child: Text(
-                              employee.name[0].toUpperCase(),
-                              style: const TextStyle(color: Colors.white, fontSize: 10),
-                            ),
+                        return DropdownMenuItem<String>(
+                          value: employee.id,
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 12,
+                                backgroundColor: employee.role == UserRole.lead
+                                    ? Colors.orange
+                                    : Colors.blue,
+                                child: Text(
+                                  employee.name[0].toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(child: Text(employee.name)),
+                              if (employee.role == UserRole.lead)
+                                const Icon(
+                                  Icons.star,
+                                  size: 16,
+                                  color: Colors.orange,
+                                ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(employee.name)),
-                          if (employee.role == UserRole.lead)
-                            const Icon(Icons.star, size: 16, color: Colors.orange),
-                        ],
-                      ),
-                    );
-                  }).toList(),
+                        );
+                      })
+                      .toList(),
                   onChanged: workItem.status == WorkStatus.notStarted
                       ? (value) {
                           setState(() {
@@ -312,19 +341,24 @@ class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScr
                 spacing: 8,
                 runSpacing: 4,
                 children: assignment.teamMemberIds.map((memberId) {
-                  final member = _availableEmployees.firstWhere((e) => e.id == memberId);
+                  final member = _availableEmployees.firstWhere(
+                    (e) => e.id == memberId,
+                  );
                   return Chip(
                     avatar: CircleAvatar(
                       radius: 12,
                       backgroundColor: Colors.blue,
                       child: Text(
                         member.name[0].toUpperCase(),
-                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                        ),
                       ),
                     ),
                     label: Text(member.name),
-                    deleteIcon: workItem.status == WorkStatus.notStarted 
-                        ? const Icon(Icons.close, size: 16) 
+                    deleteIcon: workItem.status == WorkStatus.notStarted
+                        ? const Icon(Icons.close, size: 16)
                         : null,
                     onDeleted: workItem.status == WorkStatus.notStarted
                         ? () {
@@ -370,9 +404,14 @@ class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScr
                   if (leadEmployee != null) ...[
                     Text('Lead: ${leadEmployee.name}'),
                   ] else ...[
-                    Text('Lead: Not assigned', style: TextStyle(color: Colors.red[600])),
+                    Text(
+                      'Lead: Not assigned',
+                      style: TextStyle(color: Colors.red[600]),
+                    ),
                   ],
-                  Text('Team Size: ${assignment.teamMemberIds.length + (leadEmployee != null ? 1 : 0)}'),
+                  Text(
+                    'Team Size: ${assignment.teamMemberIds.length + (leadEmployee != null ? 1 : 0)}',
+                  ),
                   if (workItem.status != WorkStatus.notStarted)
                     Text(
                       'Status: ${workItem.status.displayName}',
@@ -392,9 +431,11 @@ class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScr
 
   void _showAddTeamMemberDialog(WorkAssignment assignment) {
     final availableMembers = _availableEmployees
-        .where((employee) => 
-            employee.id != assignment.leadEmployeeId && 
-            !assignment.teamMemberIds.contains(employee.id))
+        .where(
+          (employee) =>
+              employee.id != assignment.leadEmployeeId &&
+              !assignment.teamMemberIds.contains(employee.id),
+        )
         .toList();
 
     if (availableMembers.isEmpty) {
@@ -415,7 +456,9 @@ class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScr
               final employee = availableMembers[index];
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: employee.role == UserRole.lead ? Colors.orange : Colors.blue,
+                  backgroundColor: employee.role == UserRole.lead
+                      ? Colors.orange
+                      : Colors.blue,
                   child: Text(
                     employee.name[0].toUpperCase(),
                     style: const TextStyle(color: Colors.white),
@@ -448,20 +491,26 @@ class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScr
 
   Future<void> _saveAssignments() async {
     setState(() => _isSaving = true);
-    
+
     try {
       // Validate assignments
       for (var assignment in _assignments.values) {
         if (assignment.leadEmployeeId == null) {
-          throw Exception('Please assign a team lead for ${assignment.workItem.workType.displayName}');
+          throw Exception(
+            'Please assign a team lead for ${assignment.workItem.workType.displayName}',
+          );
         }
       }
 
       // Save each assignment
       for (var assignment in _assignments.values) {
         if (assignment.workItem.status == WorkStatus.notStarted) {
-          final leadEmployee = _availableEmployees.firstWhere((e) => e.id == assignment.leadEmployeeId);
-          final teamMembers = _availableEmployees.where((e) => assignment.teamMemberIds.contains(e.id)).toList();
+          final leadEmployee = _availableEmployees.firstWhere(
+            (e) => e.id == assignment.leadEmployeeId,
+          );
+          final teamMembers = _availableEmployees
+              .where((e) => assignment.teamMemberIds.contains(e.id))
+              .toList();
 
           await _installationService.assignEmployeesToWork(
             workItemId: assignment.workItem.id,
@@ -518,9 +567,9 @@ class _AssignInstallationWorkScreenState extends State<AssignInstallationWorkScr
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

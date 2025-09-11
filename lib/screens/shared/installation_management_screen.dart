@@ -20,10 +20,12 @@ class InstallationManagementScreen extends StatefulWidget {
   });
 
   @override
-  State<InstallationManagementScreen> createState() => _InstallationManagementScreenState();
+  State<InstallationManagementScreen> createState() =>
+      _InstallationManagementScreenState();
 }
 
-class _InstallationManagementScreenState extends State<InstallationManagementScreen>
+class _InstallationManagementScreenState
+    extends State<InstallationManagementScreen>
     with SingleTickerProviderStateMixin {
   final InstallationService _installationService = InstallationService();
   final AuthService _authService = AuthService();
@@ -52,13 +54,15 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
     setState(() => _isLoading = true);
     try {
       _currentUser = await _authService.getCurrentUser();
-      
+
       // Load customer data
       _customer = await _customerService.getCustomerById(widget.customerId);
-      
+
       // Try to load existing installation project
       try {
-        _project = await _installationService.getInstallationProject(widget.customerId);
+        _project = await _installationService.getInstallationProject(
+          widget.customerId,
+        );
       } catch (e) {
         // Project doesn't exist yet, this is OK
         _project = null;
@@ -92,15 +96,15 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _project == null
-              ? _buildCreateProjectView()
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildOverviewTab(),
-                    _buildWorkItemsTab(),
-                    _buildTeamStatusTab(),
-                  ],
-                ),
+          ? _buildCreateProjectView()
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _buildOverviewTab(),
+                _buildWorkItemsTab(),
+                _buildTeamStatusTab(),
+              ],
+            ),
       floatingActionButton: _project != null && _canManageWork()
           ? FloatingActionButton.extended(
               onPressed: _showAssignWorkDialog,
@@ -177,15 +181,27 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
                   const SizedBox(height: 16),
                   _buildSummaryRow('Customer', _project!.customerName),
                   _buildSummaryRow('Address', _project!.customerAddress),
-                  _buildSummaryRow('Total Work Items', '${_project!.totalWorkItems}'),
-                  _buildSummaryRow('Completed Items', '${_project!.completedWorkItems}'),
-                  _buildSummaryRow('Progress', '${_project!.progressPercentage.toStringAsFixed(1)}%'),
-                  _buildSummaryRow('Status', _project!.overallStatus.displayName),
+                  _buildSummaryRow(
+                    'Total Work Items',
+                    '${_project!.totalWorkItems}',
+                  ),
+                  _buildSummaryRow(
+                    'Completed Items',
+                    '${_project!.completedWorkItems}',
+                  ),
+                  _buildSummaryRow(
+                    'Progress',
+                    '${_project!.progressPercentage.toStringAsFixed(1)}%',
+                  ),
+                  _buildSummaryRow(
+                    'Status',
+                    _project!.overallStatus.displayName,
+                  ),
                 ],
               ),
             ),
           ),
-          
+
           const SizedBox(height: 16),
 
           // Progress Indicator
@@ -197,10 +213,7 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
                 children: [
                   Text(
                     'Work Progress',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   LinearProgressIndicator(
@@ -229,13 +242,12 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
                 children: [
                   Text(
                     'Work Types Status',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
-                  ..._project!.workItems.map((item) => _buildWorkTypeStatusTile(item)),
+                  ..._project!.workItems.map(
+                    (item) => _buildWorkTypeStatusTile(item),
+                  ),
                 ],
               ),
             ),
@@ -289,7 +301,7 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
 
     // Collect all unique employees from all work items
     Map<String, EmployeeStatus> employeeStatus = {};
-    
+
     for (var workItem in _project!.workItems) {
       for (var log in workItem.employeeLogs.values) {
         employeeStatus[log.employeeId] = EmployeeStatus(
@@ -339,10 +351,7 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: TextStyle(fontWeight: FontWeight.w400),
-            ),
+            child: Text(value, style: TextStyle(fontWeight: FontWeight.w400)),
           ),
         ],
       ),
@@ -393,7 +402,10 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
       trailing: item.status == WorkStatus.inProgress
           ? Text(
               '${item.employeesWorking}/${item.totalAssignedEmployees} working',
-              style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                color: Colors.orange,
+                fontWeight: FontWeight.w500,
+              ),
             )
           : null,
       onTap: () => _showWorkItemDetails(item),
@@ -414,16 +426,13 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
                 Expanded(
                   child: Text(
                     item.workType.displayName,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
                 _buildStatusChip(item.status),
               ],
             ),
-            
+
             const SizedBox(height: 12),
 
             // Assignment info
@@ -466,8 +475,8 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
                     child: _buildInfoItem(
                       Icons.people,
                       '${item.employeesAtSite}/${item.totalAssignedEmployees} at site',
-                      item.employeesAtSite == item.totalAssignedEmployees 
-                          ? Colors.green 
+                      item.employeesAtSite == item.totalAssignedEmployees
+                          ? Colors.green
                           : Colors.orange,
                     ),
                   ),
@@ -490,9 +499,9 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
                       foregroundColor: Colors.white,
                     ),
                   ),
-                
+
                 const SizedBox(width: 8),
-                
+
                 TextButton.icon(
                   onPressed: () => _showWorkItemDetails(item),
                   icon: Icon(Icons.visibility, size: 16),
@@ -501,7 +510,9 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
 
                 const Spacer(),
 
-                if (_canVerifyWork() && item.isReadyForVerification && !item.isVerified)
+                if (_canVerifyWork() &&
+                    item.isReadyForVerification &&
+                    !item.isVerified)
                   ElevatedButton.icon(
                     onPressed: () => _verifyWork(item),
                     icon: Icon(Icons.verified, size: 16),
@@ -512,7 +523,9 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
                     ),
                   ),
 
-                if (_canAcknowledgeWork() && item.isVerified && !item.isAcknowledged)
+                if (_canAcknowledgeWork() &&
+                    item.isVerified &&
+                    !item.isAcknowledged)
                   ElevatedButton.icon(
                     onPressed: () => _acknowledgeWork(item),
                     icon: Icon(Icons.thumb_up, size: 16),
@@ -523,7 +536,9 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
                     ),
                   ),
 
-                if (_canApproveWork() && item.isAcknowledged && !item.isApproved)
+                if (_canApproveWork() &&
+                    item.isAcknowledged &&
+                    !item.isApproved)
                   ElevatedButton.icon(
                     onPressed: () => _approveWork(item),
                     icon: Icon(Icons.approval, size: 16),
@@ -546,17 +561,17 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: employee.isCurrentlyWorking 
-              ? Colors.green 
-              : employee.isAtSite 
-                  ? Colors.orange 
-                  : Colors.grey,
+          backgroundColor: employee.isCurrentlyWorking
+              ? Colors.green
+              : employee.isAtSite
+              ? Colors.orange
+              : Colors.grey,
           child: Icon(
-            employee.isCurrentlyWorking 
-                ? Icons.work 
-                : employee.isAtSite 
-                    ? Icons.location_on 
-                    : Icons.person,
+            employee.isCurrentlyWorking
+                ? Icons.work
+                : employee.isAtSite
+                ? Icons.location_on
+                : Icons.person,
             color: Colors.white,
           ),
         ),
@@ -565,11 +580,11 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              employee.isCurrentlyWorking 
-                  ? 'Currently Working' 
-                  : employee.isAtSite 
-                      ? 'At Site' 
-                      : 'Not at Site',
+              employee.isCurrentlyWorking
+                  ? 'Currently Working'
+                  : employee.isAtSite
+                  ? 'At Site'
+                  : 'Not at Site',
             ),
             Text('Total Hours: ${employee.totalHours.toStringAsFixed(1)}'),
           ],
@@ -652,11 +667,13 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
         customerId: widget.customerId,
         customerName: _customer!.name,
         customerAddress: _customer!.address ?? 'Address not provided',
-        siteLatitude: _customer!.latitude ?? 17.3850, // Default to Hyderabad if not set
-        siteLongitude: _customer!.longitude ?? 78.4867, // Default to Hyderabad if not set
+        siteLatitude:
+            _customer!.latitude ?? 17.3850, // Default to Hyderabad if not set
+        siteLongitude:
+            _customer!.longitude ?? 78.4867, // Default to Hyderabad if not set
         workTypes: InstallationWorkType.values,
       );
-      
+
       _showMessage('Installation project created successfully');
       _loadData();
     } catch (e) {
@@ -735,24 +752,21 @@ class _InstallationManagementScreenState extends State<InstallationManagementScr
   }
 
   // Permission check methods
-  bool _canManageWork() => 
-      widget.userRole == UserRole.director || 
+  bool _canManageWork() =>
+      widget.userRole == UserRole.director ||
       widget.userRole == UserRole.manager ||
       widget.userRole == UserRole.lead;
 
-  bool _canVerifyWork() => 
-      widget.userRole == UserRole.lead;
+  bool _canVerifyWork() => widget.userRole == UserRole.lead;
 
-  bool _canAcknowledgeWork() => 
-      widget.userRole == UserRole.manager;
+  bool _canAcknowledgeWork() => widget.userRole == UserRole.manager;
 
-  bool _canApproveWork() => 
-      widget.userRole == UserRole.director;
+  bool _canApproveWork() => widget.userRole == UserRole.director;
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

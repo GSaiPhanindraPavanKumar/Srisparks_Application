@@ -1,880 +1,627 @@
-import 'dart:convert';
-import 'dart:io';
+import 'dart:math';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:geolocator/geolocator.dart';
-import '../models/installation_model.dart';
+import '../models/installation_work_model.dart';
 
 class InstallationService {
-  static final SupabaseClient _supabase = Supabase.instance.client;
+  final SupabaseClient _supabase = Supabase.instance.client;
 
-  // Get all installation work assignments
-  static Future<List<InstallationWorkAssignment>> getAllInstallationAssignments({
-    String? officeId,
-    String? employeeId,
-    String? status,
+  // Constants
+  static const double WORK_SITE_RADIUS = 100.0; // meters
+  static const Duration LOCATION_CHECK_INTERVAL = Duration(minutes: 15);
+
+  // Create installation project for customer
+  Future<InstallationProject> createInstallationProject({
+    required String customerId,
+    required String customerName,
+    required String customerAddress,
+    required double siteLatitude,
+    required double siteLongitude,
+    required List<InstallationWorkType> workTypes,
   }) async {
     try {
-      var query = _supabase
-          .from('installation_work_assignments')
-          .select('''
-            *,
-            customers (
-              name,
-              address,
-              latitude,
-              longitude
-            )
-          ''');
+      final projectData = {
+        'customer_id': customerId,
+        'customer_name': customerName,
+        'customer_address': customerAddress,
+        'site_latitude': siteLatitude,
+        'site_longitude': siteLongitude,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      };
 
-      if (officeId != null) {
-        // Filter by office through customer relationship
-        query = query.eq('customers.office_id', officeId);
+      final response = await _supabase
+          .from('installation_projects')
+          .insert(projectData)
+          .select()
+          .single();
+
+      // Create work items for each work type
+      List<InstallationWorkItem> workItems = [];
+      for (InstallationWorkType workType in workTypes) {
+        final workItemData = {
+          'customer_id': customerId,
+          'work_type': workType.name,
+          'site_latitude': siteLatitude,
+          'site_longitude': siteLongitude,
+          'site_address': customerAddress,
+          'status': WorkStatus.notStarted.name,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        };
+
+        final workItemResponse = await _supabase
+            .from('installation_work_items')
+            .insert(workItemData)
+            .select()
+            .single();
+
+        workItems.add(InstallationWorkItem.fromJson(workItemResponse));
       }
 
-      if (employeeId != null) {
-        // Filter assignments for specific employee
-        query = query.contains('assigned_employee_ids', [employeeId]);
-      }
-
-      if (status != null) {
-        query = query.eq('status', status);
-      }
-
-      final response = await query.order('created_at', ascending: false);
-
-      return (response as List)
-          .map((json) => InstallationWorkAssignment.fromJson(json))
-          .toList();
+      return InstallationProject.fromJson({
+        ...response,
+        'work_items': workItems.map((item) => item.toJson()).toList(),
+      });
     } catch (e) {
-      throw Exception('Failed to get installation assignments: $e');
+      throw Exception('Failed to create installation project: $e');
     }
   }
 
-  // Check if customer has an installation assignment
-  static Future<InstallationWorkAssignment?> getCustomerInstallationAssignment(String customerId) async {
+  // Get installation project by customer ID
+  Future<InstallationProject?> getInstallationProject(String customerId) async {
     try {
-      final response = await _supabase
-          .from('installation_work_assignments')
-          .select('''
-            *,
-            customers (
-              name,
-              address,
-              latitude,
-              longitude
-            )
-          ''')
+      final projectResponse = await _supabase
+          .from('installation_projects')
+          .select()
           .eq('customer_id', customerId)
           .maybeSingle();
 
-      if (response == null) return null;
-      
-      return InstallationWorkAssignment.fromJson(response);
-    } catch (e) {
-      throw Exception('Failed to get customer installation assignment: $e');
-    }
-  }
+      if (projectResponse == null) return null;
 
-  // Create new installation work assignment
-  static Future<InstallationWorkAssignment> createInstallationAssignment({
-    required String customerId,
-    required List<String> assignedEmployeeIds,
-    required String assignedById,
-    DateTime? scheduledDate,
-    String? notes,
-  }) async {
-    try {
-      // Get customer details
-      final customerResponse = await _supabase
-          .from('customers')
-          .select('name, address, latitude, longitude')
-          .eq('id', customerId)
-          .single();
-
-      // Get employee names
-      final employeesResponse = await _supabase
-          .from('users')
-          .select('id, full_name')
-          .in_('id', assignedEmployeeIds);
-
-      final employeeNames = employeesResponse
-          .map((user) => user['full_name'] as String)
-          .toList();
-
-      // Get assigner details
-      final assignerResponse = await _supabase
-          .from('users')
-          .select('full_name')
-          .eq('id', assignedById)
-          .single();
-
-      final assignment = {
-        'customer_id': customerId,
-        'customer_name': customerResponse['name'],
-        'customer_address': customerResponse['address'],
-        'customer_latitude': customerResponse['latitude'],
-        'customer_longitude': customerResponse['longitude'],
-        'assigned_employee_ids': assignedEmployeeIds,
-        'assigned_employee_names': employeeNames,
-        'assigned_by_id': assignedById,
-        'assigned_by_name': assignerResponse['full_name'],
-        'assigned_date': DateTime.now().toIso8601String(),
-        'scheduled_date': scheduledDate?.toIso8601String(),
-        'status': 'assigned',
-        'notes': notes,
-        'created_at': DateTime.now().toIso8601String(),
-        'subtasks_status': _getDefaultSubTasksStatusJson(),
-        'subtasks_start_times': _getDefaultSubTasksDateTimesJson(),
-        'subtasks_completion_times': _getDefaultSubTasksDateTimesJson(),
-        'subtasks_photos': _getDefaultSubTasksPhotosJson(),
-        'subtasks_notes': _getDefaultSubTasksNotesJson(),
-        'subtasks_employees_present': _getDefaultSubTasksEmployeesJson(),
-      };
-
-      final response = await _supabase
-          .from('installation_work_assignments')
-          .insert(assignment)
+      final workItemsResponse = await _supabase
+          .from('installation_work_items')
           .select()
-          .single();
+          .eq('project_id', projectResponse['id']);
 
-      // Update customer phase to installation
-      await _supabase
-          .from('customers')
-          .update({
-            'current_phase': 'installation',
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', customerId);
-
-      return InstallationWorkAssignment.fromJson(response);
+      return InstallationProject.fromJson({
+        ...projectResponse,
+        'work_items': workItemsResponse,
+      });
     } catch (e) {
-      throw Exception('Failed to create installation assignment: $e');
+      throw Exception('Failed to get installation project: $e');
     }
   }
 
-  // Start a sub-task with GPS verification
-  static Future<InstallationWorkAssignment> startSubTask({
-    required String assignmentId,
-    required InstallationSubTask subTask,
-    required List<String> employeesPresent,
-    required String startedByEmployeeId,
-  }) async {
-    try {
-      // Get current assignment
-      final assignment = await getInstallationAssignment(assignmentId);
-      
-      // Verify GPS location for all employees present
-      final customerLat = assignment.customerLatitude;
-      final customerLng = assignment.customerLongitude;
-      
-      if (customerLat == null || customerLng == null) {
-        throw Exception('Customer location not available for GPS verification');
-      }
-
-      // Get current location of all employees present
-      final bool allEmployeesAtSite = await _verifyAllEmployeesAtSite(
-        employeesPresent,
-        customerLat,
-        customerLng,
-      );
-
-      if (!allEmployeesAtSite) {
-        throw Exception('Not all employees are within 50 meters of customer location');
-      }
-
-      // Update sub-task status
-      final updatedSubTasksStatus = Map<InstallationSubTask, InstallationTaskStatus>.from(assignment.subTasksStatus);
-      updatedSubTasksStatus[subTask] = InstallationTaskStatus.inProgress;
-
-      final updatedSubTasksStartTimes = Map<InstallationSubTask, DateTime?>.from(assignment.subTasksStartTimes);
-      updatedSubTasksStartTimes[subTask] = DateTime.now();
-
-      final updatedSubTasksEmployeesPresent = Map<InstallationSubTask, List<String>?>.from(assignment.subTasksEmployeesPresent);
-      updatedSubTasksEmployeesPresent[subTask] = employeesPresent;
-
-      // Update assignment status to in_progress if not already
-      String overallStatus = assignment.status;
-      if (overallStatus == 'assigned') {
-        overallStatus = 'in_progress';
-      }
-
-      final updates = {
-        'status': overallStatus,
-        'subtasks_status': _subTasksStatusToJson(updatedSubTasksStatus),
-        'subtasks_start_times': _subTasksDateTimesToJson(updatedSubTasksStartTimes),
-        'subtasks_employees_present': _subTasksEmployeesToJson(updatedSubTasksEmployeesPresent),
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-
-      final response = await _supabase
-          .from('installation_work_assignments')
-          .update(updates)
-          .eq('id', assignmentId)
-          .select()
-          .single();
-
-      return InstallationWorkAssignment.fromJson(response);
-    } catch (e) {
-      throw Exception('Failed to start sub-task: $e');
-    }
-  }
-
-  // Complete a sub-task with GPS verification and mandatory fields
-  static Future<InstallationWorkAssignment> completeSubTask({
-    required String assignmentId,
-    required InstallationSubTask subTask,
-    required String completedByEmployeeId,
-    required String completionNotes,
-    required List<String> photoUrls,
-    List<String>? solarPanelSerialNumbers, // Required for dataCollection
-    List<String>? inverterSerialNumbers, // Required for dataCollection
-  }) async {
-    try {
-      // Get current assignment
-      final assignment = await getInstallationAssignment(assignmentId);
-      
-      // Verify GPS location for completing employee
-      final customerLat = assignment.customerLatitude;
-      final customerLng = assignment.customerLongitude;
-      
-      if (customerLat == null || customerLng == null) {
-        throw Exception('Customer location not available for GPS verification');
-      }
-
-      final bool employeeAtSite = await _verifyEmployeeAtSite(
-        completedByEmployeeId,
-        customerLat,
-        customerLng,
-      );
-
-      if (!employeeAtSite) {
-        throw Exception('Employee is not within 50 meters of customer location');
-      }
-
-      // Validate mandatory fields
-      if (completionNotes.trim().isEmpty) {
-        throw Exception('Completion notes are required');
-      }
-
-      if (photoUrls.isEmpty) {
-        throw Exception('At least one photo is required for task completion');
-      }
-
-      // Special validation for data collection sub-task
-      if (subTask == InstallationSubTask.dataCollection) {
-        if (solarPanelSerialNumbers == null || solarPanelSerialNumbers.isEmpty) {
-          throw Exception('Solar panel serial numbers are required for data collection');
-        }
-        if (inverterSerialNumbers == null || inverterSerialNumbers.isEmpty) {
-          throw Exception('Inverter serial numbers are required for data collection');
-        }
-      }
-
-      // Update sub-task status
-      final updatedSubTasksStatus = Map<InstallationSubTask, InstallationTaskStatus>.from(assignment.subTasksStatus);
-      updatedSubTasksStatus[subTask] = InstallationTaskStatus.completed;
-
-      final updatedSubTasksCompletionTimes = Map<InstallationSubTask, DateTime?>.from(assignment.subTasksCompletionTimes);
-      updatedSubTasksCompletionTimes[subTask] = DateTime.now();
-
-      final updatedSubTasksPhotos = Map<InstallationSubTask, List<String>?>.from(assignment.subTasksPhotos);
-      updatedSubTasksPhotos[subTask] = photoUrls;
-
-      final updatedSubTasksNotes = Map<InstallationSubTask, String?>.from(assignment.subTasksNotes);
-      updatedSubTasksNotes[subTask] = completionNotes;
-
-      // Check if all sub-tasks are completed
-      final bool allCompleted = updatedSubTasksStatus.values.every(
-        (status) => status == InstallationTaskStatus.completed,
-      );
-
-      String overallStatus = assignment.status;
-      if (allCompleted) {
-        overallStatus = 'completed';
-      }
-
-      final updates = {
-        'status': overallStatus,
-        'subtasks_status': _subTasksStatusToJson(updatedSubTasksStatus),
-        'subtasks_completion_times': _subTasksDateTimesToJson(updatedSubTasksCompletionTimes),
-        'subtasks_photos': _subTasksPhotosToJson(updatedSubTasksPhotos),
-        'subtasks_notes': _subTasksNotesToJson(updatedSubTasksNotes),
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-
-      // Add data collection specific fields if completing data collection
-      if (subTask == InstallationSubTask.dataCollection) {
-        updates['solar_panel_serial_numbers'] = solarPanelSerialNumbers?.join(',') ?? '';
-        updates['inverter_serial_numbers'] = inverterSerialNumbers?.join(',') ?? '';
-        updates['data_collection_completed_at'] = DateTime.now().toIso8601String();
-        updates['data_collection_completed_by'] = completedByEmployeeId;
-      }
-
-      final response = await _supabase
-          .from('installation_work_assignments')
-          .update(updates)
-          .eq('id', assignmentId)
-          .select()
-          .single();
-
-      // Update customer's serial numbers if data collection is completed
-      if (subTask == InstallationSubTask.dataCollection) {
-        await _supabase
-            .from('customers')
-            .update({
-              'solar_panels_serial_numbers': jsonEncode(solarPanelSerialNumbers),
-              'inverter_serial_numbers': jsonEncode(inverterSerialNumbers),
-              'updated_at': DateTime.now().toIso8601String(),
-            })
-            .eq('id', assignment.customerId);
-      }
-
-      return InstallationWorkAssignment.fromJson(response);
-    } catch (e) {
-      throw Exception('Failed to complete sub-task: $e');
-    }
-  }
-
-  // Verify installation work (Lead/Manager/Director)
-  static Future<InstallationWorkAssignment> verifyInstallation({
-    required String assignmentId,
-    required String verifiedById,
-    required String verificationStatus, // 'approved' or 'rejected'
-    String? verificationNotes,
-  }) async {
-    try {
-      // Get verifier details
-      final verifierResponse = await _supabase
-          .from('users')
-          .select('full_name, role')
-          .eq('id', verifiedById)
-          .single();
-
-      // Check if user has permission to verify
-      final String verifierRole = verifierResponse['role'];
-      if (!['lead', 'manager', 'director'].contains(verifierRole)) {
-        throw Exception('Only leads, managers, and directors can verify installations');
-      }
-
-      final String finalStatus = verificationStatus == 'approved' ? 'verified' : 'rejected';
-
-      final updates = {
-        'status': finalStatus,
-        'verified_by_id': verifiedById,
-        'verified_by_name': verifierResponse['full_name'],
-        'verified_date': DateTime.now().toIso8601String(),
-        'verification_status': verificationStatus,
-        'verification_notes': verificationNotes,
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-
-      final response = await _supabase
-          .from('installation_work_assignments')
-          .update(updates)
-          .eq('id', assignmentId)
-          .select()
-          .single();
-
-      // If approved, move customer to next phase
-      if (verificationStatus == 'approved') {
-        final assignment = InstallationWorkAssignment.fromJson(response);
-        await _supabase
-            .from('customers')
-            .update({
-              'current_phase': 'documentation', // Move to next phase
-              'updated_at': DateTime.now().toIso8601String(),
-            })
-            .eq('id', assignment.customerId);
-      }
-
-      return InstallationWorkAssignment.fromJson(response);
-    } catch (e) {
-      throw Exception('Failed to verify installation: $e');
-    }
-  }
-
-  // Get specific installation assignment
-  static Future<InstallationWorkAssignment> getInstallationAssignment(String assignmentId) async {
-    try {
-      final response = await _supabase
-          .from('installation_work_assignments')
-          .select('''
-            *,
-            customers (
-              name,
-              address,
-              latitude,
-              longitude
-            )
-          ''')
-          .eq('id', assignmentId)
-          .single();
-
-      return InstallationWorkAssignment.fromJson(response);
-    } catch (e) {
-      throw Exception('Failed to get installation assignment: $e');
-    }
-  }
-
-  // Get installation assignments for specific employee
-  static Future<List<InstallationWorkAssignment>> getEmployeeInstallationAssignments(String employeeId) async {
-    try {
-      final response = await _supabase
-          .from('installation_work_assignments')
-          .select('''
-            *,
-            customers (
-              name,
-              address,
-              latitude,
-              longitude
-            )
-          ''')
-          .contains('assigned_employee_ids', [employeeId])
-          .order('created_at', ascending: false);
-
-      return (response as List)
-          .map((json) => InstallationWorkAssignment.fromJson(json))
-          .toList();
-    } catch (e) {
-      throw Exception('Failed to get employee installation assignments: $e');
-    }
-  }
-
-  // Get current location and verify if employee is at customer site
-  static Future<bool> _verifyEmployeeAtSite(
-    String employeeId,
-    double customerLat,
-    double customerLng,
+  // Get all installation projects for office
+  Future<List<InstallationProject>> getInstallationProjectsByOffice(
+    String officeId,
   ) async {
     try {
-      // Check location permission
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          throw Exception('Location permission denied');
-        }
-      }
+      // Get customers for office first
+      final customersResponse = await _supabase
+          .from('customers')
+          .select('id')
+          .eq('office_id', officeId)
+          .eq('current_phase', 'installation');
 
-      if (permission == LocationPermission.deniedForever) {
-        throw Exception('Location permission permanently denied');
-      }
+      if (customersResponse.isEmpty) return [];
 
-      // Get current position
-      final Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
+      final customerIds = customersResponse.map((c) => c['id']).toList();
 
-      // Calculate distance
-      final double distance = Geolocator.distanceBetween(
-        position.latitude,
-        position.longitude,
-        customerLat,
-        customerLng,
-      );
-
-      // Check if within 50 meters
-      return distance <= 50.0;
-    } catch (e) {
-      throw Exception('Failed to verify location: $e');
-    }
-  }
-
-  // Verify all employees are at customer site
-  static Future<bool> _verifyAllEmployeesAtSite(
-    List<String> employeeIds,
-    double customerLat,
-    double customerLng,
-  ) async {
-    // For now, we'll verify the current employee's location
-    // In a full implementation, you'd need to verify all employees
-    // This could involve real-time location sharing between employees
-    
-    try {
-      // Check location permission
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          throw Exception('Location permission denied');
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        throw Exception('Location permission permanently denied');
-      }
-
-      // Get current position
-      final Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      // Calculate distance
-      final double distance = Geolocator.distanceBetween(
-        position.latitude,
-        position.longitude,
-        customerLat,
-        customerLng,
-      );
-
-      // Check if within 50 meters
-      return distance <= 50.0;
-    } catch (e) {
-      throw Exception('Failed to verify location: $e');
-    }
-  }
-
-  // Get installation assignments that need verification
-  static Future<List<InstallationWorkAssignment>> getAssignmentsAwaitingVerification({
-    String? officeId,
-  }) async {
-    try {
-      var query = _supabase
-          .from('installation_work_assignments')
-          .select('''
-            *,
-            customers (
-              name,
-              address,
-              latitude,
-              longitude,
-              office_id
-            )
-          ''')
-          .eq('status', 'completed');
-
-      if (officeId != null) {
-        query = query.eq('customers.office_id', officeId);
-      }
-
-      final response = await query.order('updated_at', ascending: true);
-
-      return (response as List)
-          .map((json) => InstallationWorkAssignment.fromJson(json))
-          .toList();
-    } catch (e) {
-      throw Exception('Failed to get assignments awaiting verification: $e');
-    }
-  }
-
-  // Get installation statistics for dashboard
-  static Future<Map<String, int>> getInstallationStatistics({String? officeId, String? employeeId}) async {
-    try {
-      var query = _supabase.from('installation_work_assignments').select('status');
-
-      if (officeId != null) {
-        // Join with customers to filter by office
-        query = _supabase
-            .from('installation_work_assignments')
-            .select('status, customers!inner(office_id)')
-            .eq('customers.office_id', officeId);
-      }
-
-      if (employeeId != null) {
-        query = query.contains('assigned_employee_ids', [employeeId]);
-      }
-
-      final response = await query;
-
-      final Map<String, int> statistics = {
-        'total': 0,
-        'assigned': 0,
-        'in_progress': 0,
-        'completed': 0,
-        'verified': 0,
-        'rejected': 0,
-      };
-
-      for (final record in response) {
-        final String status = record['status'];
-        statistics['total'] = (statistics['total'] ?? 0) + 1;
-        statistics[status] = (statistics[status] ?? 0) + 1;
-      }
-
-      return statistics;
-    } catch (e) {
-      throw Exception('Failed to get installation statistics: $e');
-    }
-  }
-
-  // Helper methods for JSON conversion
-  static String _getDefaultSubTasksStatusJson() {
-    final Map<String, String> result = {};
-    for (InstallationSubTask task in InstallationSubTask.values) {
-      result[task.name] = InstallationTaskStatus.pending.name;
-    }
-    return jsonEncode(result);
-  }
-
-  static String _getDefaultSubTasksDateTimesJson() {
-    final Map<String, String?> result = {};
-    for (InstallationSubTask task in InstallationSubTask.values) {
-      result[task.name] = null;
-    }
-    return jsonEncode(result);
-  }
-
-  static String _getDefaultSubTasksPhotosJson() {
-    final Map<String, List<String>?> result = {};
-    for (InstallationSubTask task in InstallationSubTask.values) {
-      result[task.name] = null;
-    }
-    return jsonEncode(result);
-  }
-
-  static String _getDefaultSubTasksNotesJson() {
-    final Map<String, String?> result = {};
-    for (InstallationSubTask task in InstallationSubTask.values) {
-      result[task.name] = null;
-    }
-    return jsonEncode(result);
-  }
-
-  static String _getDefaultSubTasksEmployeesJson() {
-    final Map<String, List<String>?> result = {};
-    for (InstallationSubTask task in InstallationSubTask.values) {
-      result[task.name] = null;
-    }
-    return jsonEncode(result);
-  }
-
-  static String _subTasksStatusToJson(Map<InstallationSubTask, InstallationTaskStatus> statuses) {
-    final Map<String, String> result = {};
-    for (final entry in statuses.entries) {
-      result[entry.key.name] = entry.value.name;
-    }
-    return jsonEncode(result);
-  }
-
-  static String _subTasksDateTimesToJson(Map<InstallationSubTask, DateTime?> dateTimes) {
-    final Map<String, String?> result = {};
-    for (final entry in dateTimes.entries) {
-      result[entry.key.name] = entry.value?.toIso8601String();
-    }
-    return jsonEncode(result);
-  }
-
-  static String _subTasksPhotosToJson(Map<InstallationSubTask, List<String>?> photos) {
-    final Map<String, List<String>?> result = {};
-    for (final entry in photos.entries) {
-      result[entry.key.name] = entry.value;
-    }
-    return jsonEncode(result);
-  }
-
-  static String _subTasksNotesToJson(Map<InstallationSubTask, String?> notes) {
-    final Map<String, String?> result = {};
-    for (final entry in notes.entries) {
-      result[entry.key.name] = entry.value;
-    }
-    return jsonEncode(result);
-  }
-
-  static String _subTasksEmployeesToJson(Map<InstallationSubTask, List<String>?> employees) {
-    final Map<String, List<String>?> result = {};
-    for (final entry in employees.entries) {
-      result[entry.key.name] = entry.value;
-    }
-    return jsonEncode(result);
-  }
-
-  // Add photo upload functionality
-  static Future<String> uploadPhoto({
-    required String assignmentId,
-    required InstallationSubTask subTask,
-    required String filePath,
-    required String fileName,
-  }) async {
-    try {
-      final String storagePath = 'installation_photos/$assignmentId/${subTask.name}/$fileName';
-      
-      // Read file as bytes for Supabase storage
-      final File file = File(filePath);
-      final bytes = await file.readAsBytes();
-      
-      await _supabase.storage
-          .from('installation_photos')
-          .uploadBinary(storagePath, bytes);
-
-      final String publicUrl = _supabase.storage
-          .from('installation_photos')
-          .getPublicUrl(storagePath);
-
-      return publicUrl;
-    } catch (e) {
-      throw Exception('Failed to upload photo: $e');
-    }
-  }
-
-  // Update task notes during work
-  static Future<InstallationWorkAssignment> updateTaskNotes({
-    required String assignmentId,
-    required InstallationSubTask subTask,
-    required String notes,
-  }) async {
-    try {
-      final assignment = await getInstallationAssignment(assignmentId);
-      
-      final updatedSubTasksNotes = Map<InstallationSubTask, String?>.from(assignment.subTasksNotes);
-      updatedSubTasksNotes[subTask] = notes;
-
-      final updates = {
-        'subtasks_notes': _subTasksNotesToJson(updatedSubTasksNotes),
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-
-      final response = await _supabase
-          .from('installation_work_assignments')
-          .update(updates)
-          .eq('id', assignmentId)
+      final projectsResponse = await _supabase
+          .from('installation_projects')
           .select()
-          .single();
+          .in_('customer_id', customerIds);
 
-      return InstallationWorkAssignment.fromJson(response);
-    } catch (e) {
-      throw Exception('Failed to update task notes: $e');
-    }
-  }
+      List<InstallationProject> projects = [];
+      for (var projectData in projectsResponse) {
+        final workItemsResponse = await _supabase
+            .from('installation_work_items')
+            .select()
+            .eq('project_id', projectData['id']);
 
-  // Get completed installations for verification
-  static Future<List<InstallationWorkAssignment>> getCompletedInstallations() async {
-    try {
-      final response = await _supabase
-          .from('installation_work_assignments')
-          .select('''
-            *,
-            customers (
-              name,
-              address,
-              latitude,
-              longitude
-            )
-          ''')
-          .eq('status', 'completed')
-          .order('created_at', ascending: false);
-
-      return (response as List)
-          .map((json) => InstallationWorkAssignment.fromJson(json))
-          .toList();
-    } catch (e) {
-      throw Exception('Failed to get completed installations: $e');
-    }
-  }
-
-  // Get sub-task details for verification
-  static Future<List<Map<String, dynamic>>> getSubTaskDetails(String assignmentId) async {
-    try {
-      final assignment = await getInstallationAssignment(assignmentId);
-      final List<Map<String, dynamic>> subTaskDetails = [];
-
-      for (final subTask in InstallationSubTask.values) {
-        final status = assignment.subTasksStatus[subTask] ?? InstallationTaskStatus.pending;
-        final startTime = assignment.subTasksStartTimes[subTask];
-        final completionTime = assignment.subTasksCompletionTimes[subTask];
-        final photos = assignment.subTasksPhotos[subTask] ?? [];
-        final notes = assignment.subTasksNotes[subTask];
-
-        subTaskDetails.add({
-          'sub_task': subTask.name,
-          'status': status.name,
-          'start_time': startTime?.toIso8601String(),
-          'completion_time': completionTime?.toIso8601String(),
-          'photos': photos,
-          'notes': notes,
-        });
+        projects.add(
+          InstallationProject.fromJson({
+            ...projectData,
+            'work_items': workItemsResponse,
+          }),
+        );
       }
 
-      return subTaskDetails;
+      return projects;
     } catch (e) {
-      throw Exception('Failed to get sub-task details: $e');
+      throw Exception('Failed to get installation projects: $e');
     }
   }
 
-  // Assign employees to work - for compatibility with existing screens
-  static Future<void> assignEmployeesToWork({
-    required String assignmentId,
-    required List<String> employeeIds,
-  }) async {
-    try {
-      await _supabase
-          .from('installation_work_assignments')
-          .update({
-            'assigned_employee_ids': employeeIds,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', assignmentId);
-    } catch (e) {
-      throw Exception('Failed to assign employees to work: $e');
-    }
-  }
-
-  // Get installation project - for compatibility
-  static Future<InstallationWorkAssignment> getInstallationProject(String projectId) async {
-    return await getInstallationAssignment(projectId);
-  }
-
-  // Create installation project - for compatibility
-  static Future<String> createInstallationProject({
-    required String customerId,
-    required List<String> employeeIds,
-    required DateTime scheduledDate,
-    String? notes,
+  // Assign employees to work item
+  Future<void> assignEmployeesToWork({
+    required String workItemId,
+    required String leadEmployeeId,
+    required String leadEmployeeName,
+    required List<String> teamMemberIds,
+    required List<String> teamMemberNames,
     required String assignedBy,
   }) async {
-    final assignment = await createInstallationAssignment(
-      customerId: customerId,
-      assignedEmployeeIds: employeeIds,
-      assignedById: assignedBy,
-      scheduledDate: scheduledDate,
-      notes: notes,
-    );
-    return assignment.id;
+    try {
+      final updateData = {
+        'lead_employee_id': leadEmployeeId,
+        'team_member_ids': teamMemberIds,
+        'status': 'assigned',
+        'assigned_date': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+        'updated_by': assignedBy,
+      };
+
+      await _supabase
+          .from('installation_work_items')
+          .update(updateData)
+          .eq('id', workItemId);
+
+      // Log assignment activity
+      await _supabase.from('installation_work_activities').insert({
+        'work_item_id': workItemId,
+        'employee_id': assignedBy,
+        'activity_type': 'status_update',
+        'description':
+            'Assigned team lead: $leadEmployeeName and ${teamMemberIds.length} team members',
+        'timestamp': DateTime.now().toIso8601String(),
+        'metadata': {
+          'lead_employee_id': leadEmployeeId,
+          'lead_employee_name': leadEmployeeName,
+          'team_member_ids': teamMemberIds,
+          'team_member_names': teamMemberNames,
+          'action': 'employees_assigned',
+        },
+      });
+    } catch (e) {
+      throw Exception('Failed to assign employees: $e');
+    }
   }
 
-  // Verify work - for compatibility
-  static Future<void> verifyWork({
-    required String assignmentId,
-    required String verifiedBy,
-    required bool isApproved,
-    String? remarks,
+  // Start work with location verification
+  Future<WorkSession> startWork({
+    required String workItemId,
+    required String employeeId,
+    required double currentLatitude,
+    required double currentLongitude,
+    required double accuracy,
   }) async {
-    await verifyInstallation(
-      assignmentId: assignmentId,
-      verifiedById: verifiedBy,
-      verificationStatus: isApproved ? 'approved' : 'rejected',
-      verificationNotes: remarks,
-    );
+    try {
+      // Get work item to check site location
+      final workItem = await getWorkItem(workItemId);
+      if (workItem == null) {
+        throw Exception('Work item not found');
+      }
+
+      // Verify location
+      final distance = _calculateDistance(
+        currentLatitude,
+        currentLongitude,
+        workItem.siteLatitude,
+        workItem.siteLongitude,
+      );
+
+      final isWithinSite = distance <= WORK_SITE_RADIUS;
+      if (!isWithinSite) {
+        throw Exception(
+          'You are ${distance.toInt()}m away from work site. Please move within 100m to start work.',
+        );
+      }
+
+      // Create location verification
+      final locationVerification = LocationVerification(
+        timestamp: DateTime.now(),
+        latitude: currentLatitude,
+        longitude: currentLongitude,
+        accuracy: accuracy,
+        isWithinSite: isWithinSite,
+        distanceFromSite: distance,
+      );
+
+      // Create work session
+      final sessionId = _generateId();
+      final session = WorkSession(
+        id: sessionId,
+        startTime: DateTime.now(),
+        startLocation: locationVerification,
+        periodicChecks: [locationVerification],
+      );
+
+      // Update work item status if first employee starting
+      final currentLogs = await _getEmployeeLogs(workItemId);
+      final isFirstToStart = !currentLogs.values.any(
+        (log) => log.isCurrentlyWorking,
+      );
+
+      if (isFirstToStart) {
+        await _supabase
+            .from('installation_work_items')
+            .update({
+              'status': WorkStatus.inProgress.name,
+              'start_time': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', workItemId);
+      }
+
+      // Save session to database
+      await _saveWorkSession(workItemId, employeeId, session);
+
+      // Start location monitoring
+      _startLocationMonitoring(workItemId, employeeId);
+
+      return session;
+    } catch (e) {
+      throw Exception('Failed to start work: $e');
+    }
   }
 
-  // Acknowledge work - for compatibility
-  static Future<void> acknowledgeWork({
-    required String assignmentId,
-    required String acknowledgedBy,
+  // End work session
+  Future<void> endWork({
+    required String workItemId,
+    required String employeeId,
+    required String sessionId,
+    required double currentLatitude,
+    required double currentLongitude,
+    required double accuracy,
+    String? notes,
+  }) async {
+    try {
+      // Get current session
+      final sessions = await _getEmployeeSessions(workItemId, employeeId);
+      final session = sessions.firstWhere((s) => s.id == sessionId);
+
+      // Create end location verification
+      final endLocation = LocationVerification(
+        timestamp: DateTime.now(),
+        latitude: currentLatitude,
+        longitude: currentLongitude,
+        accuracy: accuracy,
+        isWithinSite: true, // Assume valid if ending work
+        distanceFromSite: 0.0,
+      );
+
+      // Update session
+      final updatedSession = WorkSession(
+        id: session.id,
+        startTime: session.startTime,
+        endTime: DateTime.now(),
+        notes: notes,
+        startLocation: session.startLocation,
+        endLocation: endLocation,
+        periodicChecks: session.periodicChecks,
+      );
+
+      await _updateWorkSession(workItemId, employeeId, updatedSession);
+
+      // Log work end
+      await _logWorkActivity({
+        'work_item_id': workItemId,
+        'action': 'work_ended',
+        'performed_by': employeeId,
+        'details': {
+          'session_id': sessionId,
+          'duration_hours': updatedSession.duration.inMinutes / 60.0,
+        },
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to end work: $e');
+    }
+  }
+
+  // Mark employee work as completed
+  Future<void> markWorkCompleted({
+    required String workItemId,
+    required String employeeId,
+    String? notes,
+  }) async {
+    try {
+      // Update employee log
+      await _updateEmployeeCompletion(workItemId, employeeId, true, notes);
+
+      // Check if all employees completed
+      final workItem = await getWorkItem(workItemId);
+      if (workItem != null && workItem.allEmployeesCompleted) {
+        await _supabase
+            .from('installation_work_items')
+            .update({
+              'status': WorkStatus.completed.name,
+              'end_time': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', workItemId);
+      }
+
+      await _logWorkActivity({
+        'work_item_id': workItemId,
+        'action': 'employee_completed',
+        'performed_by': employeeId,
+        'details': {'notes': notes},
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to mark work completed: $e');
+    }
+  }
+
+  // Add material usage
+  Future<void> addMaterialUsage({
+    required String workItemId,
+    required List<MaterialUsage> materials,
+    required String addedBy,
+  }) async {
+    try {
+      final materialData = materials
+          .map(
+            (material) => {
+              'work_item_id': workItemId,
+              'material_id': material.materialId,
+              'material_name': material.materialName,
+              'allocated_quantity': material.allocatedQuantity,
+              'used_quantity': material.usedQuantity,
+              'unit': material.unit,
+              'notes': material.notes,
+              'added_by': addedBy,
+              'created_at': DateTime.now().toIso8601String(),
+            },
+          )
+          .toList();
+
+      await _supabase.from('installation_material_usage').insert(materialData);
+
+      await _logWorkActivity({
+        'work_item_id': workItemId,
+        'action': 'material_usage_added',
+        'performed_by': addedBy,
+        'details': {
+          'materials_count': materials.length,
+          'total_variance': materials.fold(0, (sum, m) => sum + m.variance),
+        },
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to add material usage: $e');
+    }
+  }
+
+  // Verify work (by Lead)
+  Future<void> verifyWork({
+    required String workItemId,
+    required String verifiedBy,
+    String? notes,
   }) async {
     try {
       await _supabase
-          .from('installation_work_assignments')
+          .from('installation_work_items')
           .update({
+            'status': WorkStatus.verified.name,
+            'verified_by': verifiedBy,
+            'verified_at': DateTime.now().toIso8601String(),
+            'verification_notes': notes,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', workItemId);
+
+      await _logWorkActivity({
+        'work_item_id': workItemId,
+        'action': 'work_verified',
+        'performed_by': verifiedBy,
+        'details': {'notes': notes},
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to verify work: $e');
+    }
+  }
+
+  // Acknowledge work (by Manager)
+  Future<void> acknowledgeWork({
+    required String workItemId,
+    required String acknowledgedBy,
+    String? notes,
+  }) async {
+    try {
+      await _supabase
+          .from('installation_work_items')
+          .update({
+            'status': WorkStatus.acknowledged.name,
             'acknowledged_by': acknowledgedBy,
             'acknowledged_at': DateTime.now().toIso8601String(),
             'updated_at': DateTime.now().toIso8601String(),
           })
-          .eq('id', assignmentId);
+          .eq('id', workItemId);
+
+      await _logWorkActivity({
+        'work_item_id': workItemId,
+        'action': 'work_acknowledged',
+        'performed_by': acknowledgedBy,
+        'details': {'notes': notes},
+        'timestamp': DateTime.now().toIso8601String(),
+      });
     } catch (e) {
       throw Exception('Failed to acknowledge work: $e');
     }
   }
 
-  // Approve work - for compatibility
-  static Future<void> approveWork({
-    required String assignmentId,
+  // Approve work (by Director)
+  Future<void> approveWork({
+    required String workItemId,
     required String approvedBy,
+    String? notes,
   }) async {
-    await verifyInstallation(
-      assignmentId: assignmentId,
-      verifiedById: approvedBy,
-      verificationStatus: 'approved',
-    );
+    try {
+      await _supabase
+          .from('installation_work_items')
+          .update({
+            'status': WorkStatus.approved.name,
+            'approved_by': approvedBy,
+            'approved_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', workItemId);
+
+      // Process stock adjustments for material usage
+      await _processStockAdjustments(workItemId);
+
+      await _logWorkActivity({
+        'work_item_id': workItemId,
+        'action': 'work_approved',
+        'performed_by': approvedBy,
+        'details': {'notes': notes},
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to approve work: $e');
+    }
+  }
+
+  // Get work item by ID
+  Future<InstallationWorkItem?> getWorkItem(String workItemId) async {
+    try {
+      final response = await _supabase
+          .from('installation_work_items')
+          .select()
+          .eq('id', workItemId)
+          .maybeSingle();
+
+      if (response == null) return null;
+
+      // Get employee logs
+      final employeeLogs = await _getEmployeeLogs(workItemId);
+
+      // Get material usage
+      final materialUsage = await _getMaterialUsage(workItemId);
+
+      return InstallationWorkItem.fromJson({
+        ...response,
+        'employee_logs': employeeLogs.map(
+          (key, value) => MapEntry(key, value.toJson()),
+        ),
+        'material_usage': materialUsage.map((m) => m.toJson()).toList(),
+      });
+    } catch (e) {
+      throw Exception('Failed to get work item: $e');
+    }
+  }
+
+  // Private helper methods
+  double _calculateDistance(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
+    const double earthRadius = 6371000; // meters
+    double dLat = _toRadians(lat2 - lat1);
+    double dLng = _toRadians(lng2 - lng1);
+
+    double a =
+        sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRadians(lat1)) *
+            cos(_toRadians(lat2)) *
+            sin(dLng / 2) *
+            sin(dLng / 2);
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+    return earthRadius * c;
+  }
+
+  double _toRadians(double degree) => degree * pi / 180;
+
+  String _generateId() => DateTime.now().millisecondsSinceEpoch.toString();
+
+  Future<void> _saveWorkSession(
+    String workItemId,
+    String employeeId,
+    WorkSession session,
+  ) async {
+    // Implementation for saving work session to database
+    // This would involve updating the employee_logs JSONB field
+  }
+
+  Future<void> _updateWorkSession(
+    String workItemId,
+    String employeeId,
+    WorkSession session,
+  ) async {
+    // Implementation for updating work session in database
+  }
+
+  Future<List<WorkSession>> _getEmployeeSessions(
+    String workItemId,
+    String employeeId,
+  ) async {
+    // Implementation for getting employee sessions from database
+    return [];
+  }
+
+  Future<Map<String, EmployeeWorkLog>> _getEmployeeLogs(
+    String workItemId,
+  ) async {
+    // Implementation for getting all employee logs for work item
+    return {};
+  }
+
+  Future<List<MaterialUsage>> _getMaterialUsage(String workItemId) async {
+    try {
+      final response = await _supabase
+          .from('installation_material_usage')
+          .select()
+          .eq('work_item_id', workItemId);
+
+      return response.map((item) => MaterialUsage.fromJson(item)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> _updateEmployeeCompletion(
+    String workItemId,
+    String employeeId,
+    bool completed,
+    String? notes,
+  ) async {
+    // Implementation for updating employee completion status
+  }
+
+  Future<void> _logWorkActivity(Map<String, dynamic> activityData) async {
+    try {
+      await _supabase.from('installation_work_activities').insert(activityData);
+    } catch (e) {
+      print('Failed to log work activity: $e');
+    }
+  }
+
+  Future<void> _processStockAdjustments(String workItemId) async {
+    try {
+      final materialUsage = await _getMaterialUsage(workItemId);
+
+      for (MaterialUsage material in materialUsage) {
+        if (material.variance != 0) {
+          // Update stock based on material variance
+          final stockUpdateData = {
+            'material_id': material.materialId,
+            'quantity_change': -material
+                .variance, // Negative because we're adjusting for usage
+            'action_type': 'installation_adjustment',
+            'reference_id': workItemId,
+            'notes':
+                'Installation work adjustment - ${material.variance > 0 ? 'over-used' : 'under-used'} by ${material.variance.abs()}',
+            'created_at': DateTime.now().toIso8601String(),
+          };
+
+          await _supabase.from('stock_log').insert(stockUpdateData);
+        }
+      }
+    } catch (e) {
+      print('Failed to process stock adjustments: $e');
+    }
+  }
+
+  void _startLocationMonitoring(String workItemId, String employeeId) {
+    // Implementation for periodic location monitoring
+    // This would typically use a timer or background service
   }
 }

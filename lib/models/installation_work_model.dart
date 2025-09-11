@@ -64,15 +64,19 @@ class WorkSession {
     return WorkSession(
       id: json['id'] ?? '',
       startTime: DateTime.parse(json['start_time']),
-      endTime: json['end_time'] != null ? DateTime.parse(json['end_time']) : null,
+      endTime: json['end_time'] != null
+          ? DateTime.parse(json['end_time'])
+          : null,
       notes: json['notes'],
       startLocation: LocationVerification.fromJson(json['start_location']),
-      endLocation: json['end_location'] != null 
-          ? LocationVerification.fromJson(json['end_location']) 
+      endLocation: json['end_location'] != null
+          ? LocationVerification.fromJson(json['end_location'])
           : null,
-      periodicChecks: (json['periodic_checks'] as List<dynamic>?)
-          ?.map((check) => LocationVerification.fromJson(check))
-          .toList() ?? [],
+      periodicChecks:
+          (json['periodic_checks'] as List<dynamic>?)
+              ?.map((check) => LocationVerification.fromJson(check))
+              .toList() ??
+          [],
     );
   }
 
@@ -120,18 +124,22 @@ class EmployeeWorkLog {
     return EmployeeWorkLog(
       employeeId: json['employee_id'] ?? '',
       employeeName: json['employee_name'] ?? '',
-      sessions: (json['sessions'] as List<dynamic>?)
-          ?.map((session) => WorkSession.fromJson(session))
-          .toList() ?? [],
+      sessions:
+          (json['sessions'] as List<dynamic>?)
+              ?.map((session) => WorkSession.fromJson(session))
+              .toList() ??
+          [],
       individualNotes: json['individual_notes'],
       hasCompleted: json['has_completed'] ?? false,
       isCurrentlyAtSite: json['is_currently_at_site'] ?? false,
-      lastLocationCheck: json['last_location_check'] != null 
-          ? DateTime.parse(json['last_location_check']) 
+      lastLocationCheck: json['last_location_check'] != null
+          ? DateTime.parse(json['last_location_check'])
           : null,
-      locationHistory: (json['location_history'] as List<dynamic>?)
-          ?.map((location) => LocationVerification.fromJson(location))
-          .toList() ?? [],
+      locationHistory:
+          (json['location_history'] as List<dynamic>?)
+              ?.map((location) => LocationVerification.fromJson(location))
+              .toList() ??
+          [],
     );
   }
 
@@ -144,12 +152,17 @@ class EmployeeWorkLog {
       'has_completed': hasCompleted,
       'is_currently_at_site': isCurrentlyAtSite,
       'last_location_check': lastLocationCheck?.toIso8601String(),
-      'location_history': locationHistory.map((location) => location.toJson()).toList(),
+      'location_history': locationHistory
+          .map((location) => location.toJson())
+          .toList(),
     };
   }
 
   double get totalHours {
-    return sessions.fold(0.0, (total, session) => total + session.duration.inMinutes / 60.0);
+    return sessions.fold(
+      0.0,
+      (total, session) => total + session.duration.inMinutes / 60.0,
+    );
   }
 
   bool get isCurrentlyWorking {
@@ -253,33 +266,33 @@ class InstallationWorkItem {
   final String id;
   final String customerId;
   final InstallationWorkType workType;
-  
+
   // Location data
   final double siteLatitude;
   final double siteLongitude;
   final String siteAddress;
-  
+
   // Team structure
   final String leadEmployeeId;
   final String leadEmployeeName;
   final List<String> teamMemberIds;
   final List<String> teamMemberNames;
-  
+
   // Work status and timing
   final WorkStatus status;
   final DateTime? startTime;
   final DateTime? endTime;
   final DateTime createdAt;
   final DateTime updatedAt;
-  
+
   // Employee logs and material usage
   final Map<String, EmployeeWorkLog> employeeLogs;
   final List<MaterialUsage> materialUsage;
-  
+
   // Work documentation
   final String? workNotes;
   final List<String> workPhotos;
-  
+
   // Verification chain
   final String? verifiedBy; // Lead ID
   final DateTime? verifiedAt;
@@ -331,26 +344,39 @@ class InstallationWorkItem {
       teamMemberIds: List<String>.from(json['team_member_ids'] ?? []),
       teamMemberNames: List<String>.from(json['team_member_names'] ?? []),
       status: WorkStatus.fromString(json['status'] ?? ''),
-      startTime: json['start_time'] != null ? DateTime.parse(json['start_time']) : null,
-      endTime: json['end_time'] != null ? DateTime.parse(json['end_time']) : null,
+      startTime: json['start_time'] != null
+          ? DateTime.parse(json['start_time'])
+          : null,
+      endTime: json['end_time'] != null
+          ? DateTime.parse(json['end_time'])
+          : null,
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
       employeeLogs: Map<String, EmployeeWorkLog>.from(
         (json['employee_logs'] as Map<String, dynamic>?)?.map(
-          (key, value) => MapEntry(key, EmployeeWorkLog.fromJson(value)),
-        ) ?? {},
+              (key, value) => MapEntry(key, EmployeeWorkLog.fromJson(value)),
+            ) ??
+            {},
       ),
-      materialUsage: (json['material_usage'] as List<dynamic>?)
-          ?.map((material) => MaterialUsage.fromJson(material))
-          .toList() ?? [],
+      materialUsage:
+          (json['material_usage'] as List<dynamic>?)
+              ?.map((material) => MaterialUsage.fromJson(material))
+              .toList() ??
+          [],
       workNotes: json['work_notes'],
       workPhotos: List<String>.from(json['work_photos'] ?? []),
       verifiedBy: json['verified_by'],
-      verifiedAt: json['verified_at'] != null ? DateTime.parse(json['verified_at']) : null,
+      verifiedAt: json['verified_at'] != null
+          ? DateTime.parse(json['verified_at'])
+          : null,
       acknowledgedBy: json['acknowledged_by'],
-      acknowledgedAt: json['acknowledged_at'] != null ? DateTime.parse(json['acknowledged_at']) : null,
+      acknowledgedAt: json['acknowledged_at'] != null
+          ? DateTime.parse(json['acknowledged_at'])
+          : null,
       approvedBy: json['approved_by'],
-      approvedAt: json['approved_at'] != null ? DateTime.parse(json['approved_at']) : null,
+      approvedAt: json['approved_at'] != null
+          ? DateTime.parse(json['approved_at'])
+          : null,
       verificationNotes: json['verification_notes'],
     );
   }
@@ -372,8 +398,12 @@ class InstallationWorkItem {
       'end_time': endTime?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
-      'employee_logs': employeeLogs.map((key, value) => MapEntry(key, value.toJson())),
-      'material_usage': materialUsage.map((material) => material.toJson()).toList(),
+      'employee_logs': employeeLogs.map(
+        (key, value) => MapEntry(key, value.toJson()),
+      ),
+      'material_usage': materialUsage
+          .map((material) => material.toJson())
+          .toList(),
       'work_notes': workNotes,
       'work_photos': workPhotos,
       'verified_by': verifiedBy,
@@ -388,31 +418,29 @@ class InstallationWorkItem {
 
   // Helper methods
   List<String> get allAssignedEmployeeIds => [leadEmployeeId, ...teamMemberIds];
-  
+
   int get totalAssignedEmployees => allAssignedEmployeeIds.length;
-  
-  int get employeesAtSite => employeeLogs.values
-      .where((log) => log.isCurrentlyAtSite)
-      .length;
-  
-  int get employeesWorking => employeeLogs.values
-      .where((log) => log.isCurrentlyWorking)
-      .length;
-  
-  bool get allEmployeesCompleted => employeeLogs.values
-      .every((log) => log.hasCompleted);
-  
-  double get totalWorkHours => employeeLogs.values
-      .fold(0.0, (total, log) => total + log.totalHours);
-  
-  bool get hasMaterialVariance => materialUsage
-      .any((material) => material.variance != 0);
-  
-  bool get isReadyForVerification => 
-      status == WorkStatus.completed && 
-      allEmployeesCompleted && 
+
+  int get employeesAtSite =>
+      employeeLogs.values.where((log) => log.isCurrentlyAtSite).length;
+
+  int get employeesWorking =>
+      employeeLogs.values.where((log) => log.isCurrentlyWorking).length;
+
+  bool get allEmployeesCompleted =>
+      employeeLogs.values.every((log) => log.hasCompleted);
+
+  double get totalWorkHours =>
+      employeeLogs.values.fold(0.0, (total, log) => total + log.totalHours);
+
+  bool get hasMaterialVariance =>
+      materialUsage.any((material) => material.variance != 0);
+
+  bool get isReadyForVerification =>
+      status == WorkStatus.completed &&
+      allEmployeesCompleted &&
       materialUsage.isNotEmpty;
-  
+
   bool get isVerified => status.index >= WorkStatus.verified.index;
   bool get isAcknowledged => status.index >= WorkStatus.acknowledged.index;
   bool get isApproved => status.index >= WorkStatus.approved.index;
@@ -447,9 +475,11 @@ class InstallationProject {
       customerAddress: json['customer_address'] ?? '',
       siteLatitude: json['site_latitude']?.toDouble() ?? 0.0,
       siteLongitude: json['site_longitude']?.toDouble() ?? 0.0,
-      workItems: (json['work_items'] as List<dynamic>?)
-          ?.map((item) => InstallationWorkItem.fromJson(item))
-          .toList() ?? [],
+      workItems:
+          (json['work_items'] as List<dynamic>?)
+              ?.map((item) => InstallationWorkItem.fromJson(item))
+              .toList() ??
+          [],
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
     );
@@ -470,20 +500,26 @@ class InstallationProject {
 
   // Helper methods
   int get totalWorkItems => workItems.length;
-  int get completedWorkItems => workItems.where((item) => item.status == WorkStatus.completed).length;
-  int get verifiedWorkItems => workItems.where((item) => item.isVerified).length;
-  int get approvedWorkItems => workItems.where((item) => item.isApproved).length;
-  
-  double get progressPercentage => 
+  int get completedWorkItems =>
+      workItems.where((item) => item.status == WorkStatus.completed).length;
+  int get verifiedWorkItems =>
+      workItems.where((item) => item.isVerified).length;
+  int get approvedWorkItems =>
+      workItems.where((item) => item.isApproved).length;
+
+  double get progressPercentage =>
       totalWorkItems > 0 ? (completedWorkItems / totalWorkItems) * 100 : 0.0;
-  
-  bool get isProjectCompleted => workItems.isNotEmpty && workItems.every((item) => item.isApproved);
-  
+
+  bool get isProjectCompleted =>
+      workItems.isNotEmpty && workItems.every((item) => item.isApproved);
+
   WorkStatus get overallStatus {
     if (workItems.isEmpty) return WorkStatus.notStarted;
     if (isProjectCompleted) return WorkStatus.approved;
-    if (workItems.any((item) => item.status == WorkStatus.inProgress)) return WorkStatus.inProgress;
-    if (workItems.any((item) => item.status == WorkStatus.completed)) return WorkStatus.completed;
+    if (workItems.any((item) => item.status == WorkStatus.inProgress))
+      return WorkStatus.inProgress;
+    if (workItems.any((item) => item.status == WorkStatus.completed))
+      return WorkStatus.completed;
     return WorkStatus.notStarted;
   }
 }

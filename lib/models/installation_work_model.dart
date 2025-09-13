@@ -1,5 +1,4 @@
-import 'dart:convert';
-
+//
 // Work types for installation
 enum InstallationWorkType {
   structureWork('Structure Work'),
@@ -16,6 +15,84 @@ enum InstallationWorkType {
       (type) => type.name == value,
       orElse: () => InstallationWorkType.structureWork,
     );
+  }
+}
+
+// Employee view work types
+enum WorkType {
+  solarPanelInstallation('Solar Panel Installation'),
+  electricalWiring('Electrical Wiring'),
+  inverterInstallation('Inverter Installation'),
+  meterInstallation('Meter Installation'),
+  systemTesting('System Testing'),
+  finalInspection('Final Inspection'),
+  customerTraining('Customer Training'),
+  documentationReview('Documentation Review'),
+  maintenanceCheckup('Maintenance Checkup'),
+  troubleshooting('Troubleshooting');
+
+  const WorkType(this.displayName);
+  final String displayName;
+
+  static WorkType fromString(String value) {
+    switch (value.toLowerCase()) {
+      case 'solar_panel_installation':
+      case 'solarpanelinstallation':
+        return WorkType.solarPanelInstallation;
+      case 'electrical_wiring':
+      case 'electricalwiring':
+        return WorkType.electricalWiring;
+      case 'inverter_installation':
+      case 'inverterinstallation':
+        return WorkType.inverterInstallation;
+      case 'meter_installation':
+      case 'meterinstallation':
+        return WorkType.meterInstallation;
+      case 'system_testing':
+      case 'systemtesting':
+        return WorkType.systemTesting;
+      case 'final_inspection':
+      case 'finalinspection':
+        return WorkType.finalInspection;
+      case 'customer_training':
+      case 'customertraining':
+        return WorkType.customerTraining;
+      case 'documentation_review':
+      case 'documentationreview':
+        return WorkType.documentationReview;
+      case 'maintenance_checkup':
+      case 'maintenancecheckup':
+        return WorkType.maintenanceCheckup;
+      case 'troubleshooting':
+        return WorkType.troubleshooting;
+      default:
+        return WorkType.solarPanelInstallation;
+    }
+  }
+
+  String get databaseValue {
+    switch (this) {
+      case WorkType.solarPanelInstallation:
+        return 'solar_panel_installation';
+      case WorkType.electricalWiring:
+        return 'electrical_wiring';
+      case WorkType.inverterInstallation:
+        return 'inverter_installation';
+      case WorkType.meterInstallation:
+        return 'meter_installation';
+      case WorkType.systemTesting:
+        return 'system_testing';
+      case WorkType.finalInspection:
+        return 'final_inspection';
+      case WorkType.customerTraining:
+        return 'customer_training';
+      case WorkType.documentationReview:
+        return 'documentation_review';
+      case WorkType.maintenanceCheckup:
+        return 'maintenance_checkup';
+      case WorkType.troubleshooting:
+        return 'troubleshooting';
+    }
   }
 }
 
@@ -294,6 +371,7 @@ class InstallationWorkItem {
   final List<String> workPhotos;
 
   // Verification chain
+  final String verificationStatus; // pending, verified, rejected
   final String? verifiedBy; // Lead ID
   final DateTime? verifiedAt;
   final String? acknowledgedBy; // Manager ID
@@ -322,6 +400,7 @@ class InstallationWorkItem {
     this.materialUsage = const [],
     this.workNotes,
     this.workPhotos = const [],
+    this.verificationStatus = 'pending',
     this.verifiedBy,
     this.verifiedAt,
     this.acknowledgedBy,
@@ -332,26 +411,40 @@ class InstallationWorkItem {
   });
 
   factory InstallationWorkItem.fromJson(Map<String, dynamic> json) {
+    // Handle missing timestamps
+    final now = DateTime.now();
+    final createdAtString = json['created_at'] ?? now.toIso8601String();
+    final updatedAtString = json['updated_at'] ?? now.toIso8601String();
+
     return InstallationWorkItem(
-      id: json['id'] ?? '',
-      customerId: json['customer_id'] ?? '',
-      workType: InstallationWorkType.fromString(json['work_type'] ?? ''),
-      siteLatitude: json['site_latitude']?.toDouble() ?? 0.0,
-      siteLongitude: json['site_longitude']?.toDouble() ?? 0.0,
-      siteAddress: json['site_address'] ?? '',
-      leadEmployeeId: json['lead_employee_id'] ?? '',
-      leadEmployeeName: json['lead_employee_name'] ?? '',
-      teamMemberIds: List<String>.from(json['team_member_ids'] ?? []),
-      teamMemberNames: List<String>.from(json['team_member_names'] ?? []),
-      status: WorkStatus.fromString(json['status'] ?? ''),
+      id: json['id']?.toString() ?? json['work_item_id']?.toString() ?? '',
+      customerId: json['customer_id']?.toString() ?? '',
+      workType: InstallationWorkType.fromString(
+        json['work_type']?.toString() ?? '',
+      ),
+      siteLatitude: (json['site_latitude'] as num?)?.toDouble() ?? 0.0,
+      siteLongitude: (json['site_longitude'] as num?)?.toDouble() ?? 0.0,
+      siteAddress:
+          json['site_address']?.toString() ??
+          json['customer_address']?.toString() ??
+          '',
+      leadEmployeeId: json['lead_employee_id']?.toString() ?? '',
+      leadEmployeeName: json['lead_employee_name']?.toString() ?? '',
+      teamMemberIds: List<String>.from(
+        json['team_member_ids'] ?? json['assigned_employee_ids'] ?? [],
+      ),
+      teamMemberNames: List<String>.from(
+        json['team_member_names'] ?? json['assigned_employee_names'] ?? [],
+      ),
+      status: WorkStatus.fromString(json['status']?.toString() ?? ''),
       startTime: json['start_time'] != null
           ? DateTime.parse(json['start_time'])
           : null,
       endTime: json['end_time'] != null
           ? DateTime.parse(json['end_time'])
           : null,
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      createdAt: DateTime.parse(createdAtString),
+      updatedAt: DateTime.parse(updatedAtString),
       employeeLogs: Map<String, EmployeeWorkLog>.from(
         (json['employee_logs'] as Map<String, dynamic>?)?.map(
               (key, value) => MapEntry(key, EmployeeWorkLog.fromJson(value)),
@@ -363,21 +456,22 @@ class InstallationWorkItem {
               ?.map((material) => MaterialUsage.fromJson(material))
               .toList() ??
           [],
-      workNotes: json['work_notes'],
+      workNotes: json['work_notes']?.toString(),
       workPhotos: List<String>.from(json['work_photos'] ?? []),
-      verifiedBy: json['verified_by'],
-      verifiedAt: json['verified_at'] != null
-          ? DateTime.parse(json['verified_at'])
+      verificationStatus: json['verification_status']?.toString() ?? 'pending',
+      verifiedBy: json['verified_by']?.toString(),
+      verifiedAt: json['verified_date'] != null || json['verified_at'] != null
+          ? DateTime.parse(json['verified_date'] ?? json['verified_at'])
           : null,
-      acknowledgedBy: json['acknowledged_by'],
+      acknowledgedBy: json['acknowledged_by']?.toString(),
       acknowledgedAt: json['acknowledged_at'] != null
           ? DateTime.parse(json['acknowledged_at'])
           : null,
-      approvedBy: json['approved_by'],
+      approvedBy: json['approved_by']?.toString(),
       approvedAt: json['approved_at'] != null
           ? DateTime.parse(json['approved_at'])
           : null,
-      verificationNotes: json['verification_notes'],
+      verificationNotes: json['verification_notes']?.toString(),
     );
   }
 
@@ -406,6 +500,7 @@ class InstallationWorkItem {
           .toList(),
       'work_notes': workNotes,
       'work_photos': workPhotos,
+      'verification_status': verificationStatus,
       'verified_by': verifiedBy,
       'verified_at': verifiedAt?.toIso8601String(),
       'acknowledged_by': acknowledgedBy,
@@ -414,6 +509,108 @@ class InstallationWorkItem {
       'approved_at': approvedAt?.toIso8601String(),
       'verification_notes': verificationNotes,
     };
+  }
+
+  // Employee-specific properties for compatibility
+  int get progressPercentage {
+    switch (status) {
+      case WorkStatus.notStarted:
+        return 0;
+      case WorkStatus.inProgress:
+        return employeeLogs.isEmpty ? 25 : 50;
+      case WorkStatus.awaitingCompletion:
+        return 75;
+      case WorkStatus.completed:
+      case WorkStatus.verified:
+      case WorkStatus.acknowledged:
+      case WorkStatus.approved:
+        return 100;
+    }
+  }
+
+  double? get estimatedHours {
+    // Estimate based on work type
+    switch (workType) {
+      case InstallationWorkType.structureWork:
+        return 8.0;
+      case InstallationWorkType.panels:
+        return 6.0;
+      case InstallationWorkType.inverterWiring:
+        return 4.0;
+      case InstallationWorkType.earthing:
+        return 2.0;
+      case InstallationWorkType.lightningArrestor:
+        return 2.0;
+    }
+  }
+
+  double? get actualHours => totalWorkHours > 0 ? totalWorkHours : null;
+
+  String get installationProjectId =>
+      customerId; // Using customerId as project reference
+
+  DateTime? get scheduledDate => startTime;
+
+  String get assignedEmployeeId => leadEmployeeId;
+  String? get assignedEmployeeName => leadEmployeeName;
+
+  // Add copyWith method
+  InstallationWorkItem copyWith({
+    String? id,
+    String? customerId,
+    InstallationWorkType? workType,
+    double? siteLatitude,
+    double? siteLongitude,
+    String? siteAddress,
+    String? leadEmployeeId,
+    String? leadEmployeeName,
+    List<String>? teamMemberIds,
+    List<String>? teamMemberNames,
+    WorkStatus? status,
+    DateTime? startTime,
+    DateTime? endTime,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Map<String, EmployeeWorkLog>? employeeLogs,
+    List<MaterialUsage>? materialUsage,
+    String? workNotes,
+    List<String>? workPhotos,
+    String? verifiedBy,
+    DateTime? verifiedAt,
+    String? acknowledgedBy,
+    DateTime? acknowledgedAt,
+    String? approvedBy,
+    DateTime? approvedAt,
+    String? verificationNotes,
+  }) {
+    return InstallationWorkItem(
+      id: id ?? this.id,
+      customerId: customerId ?? this.customerId,
+      workType: workType ?? this.workType,
+      siteLatitude: siteLatitude ?? this.siteLatitude,
+      siteLongitude: siteLongitude ?? this.siteLongitude,
+      siteAddress: siteAddress ?? this.siteAddress,
+      leadEmployeeId: leadEmployeeId ?? this.leadEmployeeId,
+      leadEmployeeName: leadEmployeeName ?? this.leadEmployeeName,
+      teamMemberIds: teamMemberIds ?? this.teamMemberIds,
+      teamMemberNames: teamMemberNames ?? this.teamMemberNames,
+      status: status ?? this.status,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      employeeLogs: employeeLogs ?? this.employeeLogs,
+      materialUsage: materialUsage ?? this.materialUsage,
+      workNotes: workNotes ?? this.workNotes,
+      workPhotos: workPhotos ?? this.workPhotos,
+      verifiedBy: verifiedBy ?? this.verifiedBy,
+      verifiedAt: verifiedAt ?? this.verifiedAt,
+      acknowledgedBy: acknowledgedBy ?? this.acknowledgedBy,
+      acknowledgedAt: acknowledgedAt ?? this.acknowledgedAt,
+      approvedBy: approvedBy ?? this.approvedBy,
+      approvedAt: approvedAt ?? this.approvedAt,
+      verificationNotes: verificationNotes ?? this.verificationNotes,
+    );
   }
 
   // Helper methods
@@ -448,50 +645,102 @@ class InstallationWorkItem {
 
 // Installation project containing all work items for a customer
 class InstallationProject {
+  final String projectId;
   final String customerId;
   final String customerName;
   final String customerAddress;
   final double siteLatitude;
   final double siteLongitude;
+  final DateTime? scheduledStartDate;
   final List<InstallationWorkItem> workItems;
   final DateTime createdAt;
   final DateTime updatedAt;
 
   InstallationProject({
+    required this.projectId,
     required this.customerId,
     required this.customerName,
     required this.customerAddress,
     required this.siteLatitude,
     required this.siteLongitude,
+    this.scheduledStartDate,
     this.workItems = const [],
     required this.createdAt,
     required this.updatedAt,
   });
 
   factory InstallationProject.fromJson(Map<String, dynamic> json) {
-    return InstallationProject(
-      customerId: json['customer_id'] ?? '',
-      customerName: json['customer_name'] ?? '',
-      customerAddress: json['customer_address'] ?? '',
-      siteLatitude: json['site_latitude']?.toDouble() ?? 0.0,
-      siteLongitude: json['site_longitude']?.toDouble() ?? 0.0,
-      workItems:
-          (json['work_items'] as List<dynamic>?)
-              ?.map((item) => InstallationWorkItem.fromJson(item))
-              .toList() ??
-          [],
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
-    );
+    print('Creating InstallationProject from JSON: $json');
+
+    // Handle both direct table data and view data
+    final now = DateTime.now();
+    final createdAtString =
+        json['created_at'] ?? json['assigned_date'] ?? now.toIso8601String();
+    final updatedAtString =
+        json['updated_at'] ?? json['assigned_date'] ?? now.toIso8601String();
+
+    // Safely parse work items
+    List<InstallationWorkItem> workItems = [];
+    final workItemsData = json['work_items'];
+    if (workItemsData != null && workItemsData is List) {
+      try {
+        workItems = workItemsData
+            .map(
+              (item) =>
+                  InstallationWorkItem.fromJson(item as Map<String, dynamic>),
+            )
+            .toList();
+      } catch (e) {
+        print('Error parsing work items: $e');
+      }
+    }
+
+    try {
+      return InstallationProject(
+        projectId:
+            json['project_id']?.toString() ?? json['id']?.toString() ?? '',
+        customerId: json['customer_id']?.toString() ?? '',
+        customerName: json['customer_name']?.toString() ?? '',
+        customerAddress: json['customer_address']?.toString() ?? '',
+        siteLatitude: (json['site_latitude'] as num?)?.toDouble() ?? 0.0,
+        siteLongitude: (json['site_longitude'] as num?)?.toDouble() ?? 0.0,
+        scheduledStartDate: json['scheduled_start_date'] != null
+            ? DateTime.parse(json['scheduled_start_date'])
+            : null,
+        workItems: workItems,
+        createdAt: DateTime.parse(createdAtString),
+        updatedAt: DateTime.parse(updatedAtString),
+      );
+    } catch (e) {
+      print('Error creating InstallationProject: $e');
+      print('Problematic field values:');
+      print(
+        '  projectId: ${json['project_id']} (${json['project_id'].runtimeType})',
+      );
+      print(
+        '  customerId: ${json['customer_id']} (${json['customer_id'].runtimeType})',
+      );
+      print(
+        '  customerName: ${json['customer_name']} (${json['customer_name'].runtimeType})',
+      );
+      print(
+        '  customerAddress: ${json['customer_address']} (${json['customer_address'].runtimeType})',
+      );
+      print('  createdAtString: $createdAtString');
+      print('  updatedAtString: $updatedAtString');
+      rethrow;
+    }
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'project_id': projectId,
       'customer_id': customerId,
       'customer_name': customerName,
       'customer_address': customerAddress,
       'site_latitude': siteLatitude,
       'site_longitude': siteLongitude,
+      'scheduled_start_date': scheduledStartDate?.toIso8601String(),
       'work_items': workItems.map((item) => item.toJson()).toList(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),

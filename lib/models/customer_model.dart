@@ -68,13 +68,16 @@ class CustomerModel {
   final String? amountUtrNumber; // UTR/transaction reference number
 
   // Material Allocation Fields
-  final String? materialAllocationPlan; // JSON string containing allocation plan
-  final String materialAllocationStatus; // 'pending', 'planned', 'allocated', 'delivered', 'completed'
+  final String?
+  materialAllocationPlan; // JSON string containing allocation plan
+  final String
+  materialAllocationStatus; // 'pending', 'planned', 'allocated', 'delivered', 'completed'
   final DateTime? materialAllocationDate; // Date when materials were allocated
   final String? materialAllocatedById; // User who allocated the materials
   final DateTime? materialDeliveryDate; // Date when materials were delivered
-  final String? materialAllocationNotes; // Additional notes about material allocation
-  
+  final String?
+  materialAllocationNotes; // Additional notes about material allocation
+
   // Enhanced Audit Trail Fields
   final String? materialPlannedById; // User who planned the materials
   final DateTime? materialPlannedDate; // Date when materials were planned
@@ -82,7 +85,8 @@ class CustomerModel {
   final DateTime? materialConfirmedDate; // Date when allocation was confirmed
   final String? materialDeliveredById; // User who delivered the materials
   final DateTime? materialDeliveredDate; // Date when materials were delivered
-  final String? materialAllocationHistory; // JSON string containing allocation history
+  final String?
+  materialAllocationHistory; // JSON string containing allocation history
 
   CustomerModel({
     required this.id,
@@ -155,7 +159,7 @@ class CustomerModel {
     this.materialAllocatedById,
     this.materialDeliveryDate,
     this.materialAllocationNotes,
-    
+
     // Enhanced Audit Trail Fields
     this.materialPlannedById,
     this.materialPlannedDate,
@@ -271,7 +275,7 @@ class CustomerModel {
           ? DateTime.parse(json['material_delivery_date'])
           : null,
       materialAllocationNotes: json['material_allocation_notes'],
-      
+
       // Enhanced Audit Trail Fields
       materialPlannedById: json['material_planned_by_id'],
       materialPlannedDate: json['material_planned_date'] != null
@@ -285,7 +289,9 @@ class CustomerModel {
       materialDeliveredDate: json['material_delivered_date'] != null
           ? DateTime.parse(json['material_delivered_date'])
           : null,
-      materialAllocationHistory: _parseJsonField(json['material_allocation_history']),
+      materialAllocationHistory: _parseJsonField(
+        json['material_allocation_history'],
+      ),
     );
   }
 
@@ -359,7 +365,7 @@ class CustomerModel {
       'material_allocated_by_id': materialAllocatedById,
       'material_delivery_date': materialDeliveryDate?.toIso8601String(),
       'material_allocation_notes': materialAllocationNotes,
-      
+
       // Enhanced Audit Trail Fields
       'material_planned_by_id': materialPlannedById,
       'material_planned_date': materialPlannedDate?.toIso8601String(),
@@ -495,19 +501,19 @@ class CustomerModel {
   }
 
   bool get isMaterialAllocated {
-    return materialAllocationStatus == 'allocated' || 
-           materialAllocationStatus == 'delivered' || 
-           materialAllocationStatus == 'completed';
+    return materialAllocationStatus == 'allocated' ||
+        materialAllocationStatus == 'delivered' ||
+        materialAllocationStatus == 'completed';
   }
 
   bool get isMaterialDelivered {
-    return materialAllocationStatus == 'delivered' || 
-           materialAllocationStatus == 'completed';
+    return materialAllocationStatus == 'delivered' ||
+        materialAllocationStatus == 'completed';
   }
 
   bool get canAllocateMaterials {
-    return currentPhase == 'material_allocation' && 
-           materialAllocationStatus == 'planned';
+    return currentPhase == 'material_allocation' &&
+        materialAllocationStatus == 'planned';
   }
 
   bool get canDeliverMaterials {
@@ -560,8 +566,8 @@ class CustomerModel {
   }
 
   bool get isMaterialAllocationComplete {
-    return totalRequiredMaterials > 0 && 
-           totalAllocatedMaterials >= totalRequiredMaterials;
+    return totalRequiredMaterials > 0 &&
+        totalAllocatedMaterials >= totalRequiredMaterials;
   }
 
   // Helper methods for multiple payments management

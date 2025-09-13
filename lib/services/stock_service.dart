@@ -169,7 +169,8 @@ class StockService {
     print('Found ${response.length} stock log entries');
 
     // Explicitly cast to List<Map<String, dynamic>> and then map to StockLogModel
-    final List<Map<String, dynamic>> stockLogData = List<Map<String, dynamic>>.from(response);
+    final List<Map<String, dynamic>> stockLogData =
+        List<Map<String, dynamic>>.from(response);
     return stockLogData.map((log) => StockLogModel.fromJson(log)).toList();
   }
 

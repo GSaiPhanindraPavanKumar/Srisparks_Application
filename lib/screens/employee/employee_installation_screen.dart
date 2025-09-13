@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../models/installation_model.dart';
+import '../../models/installation_work_model.dart';
 import '../../models/user_model.dart';
 import '../../services/installation_service.dart';
 import '../../services/auth_service.dart';
-import '../shared/installation_task_detail_screen.dart';
+import 'employee_work_detail_screen.dart';
 
 class EmployeeInstallationScreen extends StatefulWidget {
   const EmployeeInstallationScreen({super.key});
@@ -16,12 +16,18 @@ class EmployeeInstallationScreen extends StatefulWidget {
 
 class _EmployeeInstallationScreenState
     extends State<EmployeeInstallationScreen> {
+  final InstallationService _installationService = InstallationService();
   final AuthService _authService = AuthService();
 
-  List<InstallationWorkAssignment> _assignments = [];
   UserModel? _currentUser;
+  List<InstallationProject> _assignments = [];
+  List<InstallationWorkItem> _workItems = [];
+  Map<String, dynamic>? _workStats;
+  Map<String, dynamic>? _activeSession;
+
   bool _isLoading = true;
-  String _searchQuery = '';
+  String? _error;
+  String _selectedView = 'projects'; // 'projects' or 'workItems'
 
   @override
   void initState() {
@@ -30,87 +36,38 @@ class _EmployeeInstallationScreenState
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
     try {
       _currentUser = await _authService.getCurrentUser();
-      if (_currentUser != null) {
-        _assignments =
-            await InstallationService.getEmployeeInstallationAssignments(
-              _currentUser!.id,
-            );
+      if (_currentUser == null) {
+        throw Exception('User not found');
       }
-    } catch (e) {
-      _showMessage('Error loading installation assignments: $e');
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
 
-  void _showMessage(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
-
-  List<InstallationWorkAssignment> get _filteredAssignments {
-    if (_searchQuery.isEmpty) return _assignments;
-
-    return _assignments.where((assignment) {
-      return assignment.customerName.toLowerCase().contains(
-            _searchQuery.toLowerCase(),
-          ) ||
-          assignment.customerAddress.toLowerCase().contains(
-            _searchQuery.toLowerCase(),
-          ) ||
-          assignment.status.toLowerCase().contains(_searchQuery.toLowerCase());
-    }).toList();
-  }
-
-  void _openTaskDetail(InstallationWorkAssignment assignment) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => InstallationTaskDetailScreen(
-          assignment: assignment,
-          currentUser: _currentUser!,
+      final futures = await Future.wait([
+        _installationService.getEmployeeInstallationAssignments(
+          _currentUser!.id,
         ),
-      ),
-    ).then((_) => _loadData()); // Refresh when returning
-  }
+        _installationService.getEmployeeWorkItems(_currentUser!.id),
+        _installationService.getEmployeeWorkStats(_currentUser!.id),
+        _installationService.getActiveWorkSession(_currentUser!.id),
+      ]);
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'assigned':
-        return Colors.blue;
-      case 'in_progress':
-        return Colors.orange;
-      case 'completed':
-        return Colors.green;
-      case 'verified':
-        return Colors.teal;
-      case 'rejected':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getStatusIcon(String status) {
-    switch (status) {
-      case 'assigned':
-        return Icons.assignment;
-      case 'in_progress':
-        return Icons.construction;
-      case 'completed':
-        return Icons.done_all;
-      case 'verified':
-        return Icons.verified;
-      case 'rejected':
-        return Icons.cancel;
-      default:
-        return Icons.help;
+      setState(() {
+        _assignments = futures[0] as List<InstallationProject>;
+        _workItems = futures[1] as List<InstallationWorkItem>;
+        _workStats = futures[2] as Map<String, dynamic>;
+        _activeSession = futures[3] as Map<String, dynamic>?;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
     }
   }
 
@@ -118,356 +75,186 @@ class _EmployeeInstallationScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Installation Tasks'),
-        backgroundColor: Colors.green.shade700,
+        title: const Text('My Installations'),
+        backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
         ],
       ),
-      body: Column(
-        children: [
-          // Search and Stats Header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-            ),
-            child: Column(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? _buildErrorWidget()
+          : Column(
               children: [
-                // Search Bar
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search assignments...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
-                    ),
-                    fillColor: Colors.white,
-                    filled: true,
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Quick Stats
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildStatCard(
-                      'Total',
-                      _assignments.length.toString(),
-                      Icons.assignment,
-                      Colors.blue,
-                    ),
-                    _buildStatCard(
-                      'Active',
-                      _assignments
-                          .where(
-                            (a) =>
-                                ['assigned', 'in_progress'].contains(a.status),
-                          )
-                          .length
-                          .toString(),
-                      Icons.construction,
-                      Colors.orange,
-                    ),
-                    _buildStatCard(
-                      'Completed',
-                      _assignments
-                          .where(
-                            (a) => ['completed', 'verified'].contains(a.status),
-                          )
-                          .length
-                          .toString(),
-                      Icons.done,
-                      Colors.green,
-                    ),
-                  ],
+                _buildStatsHeader(),
+                _buildActiveSessionCard(),
+                _buildViewSelector(),
+                Expanded(
+                  child: _selectedView == 'projects'
+                      ? _buildProjectsList()
+                      : _buildWorkItemsList(),
                 ),
               ],
             ),
-          ),
-
-          // Assignments List
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredAssignments.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _filteredAssignments.length,
-                    itemBuilder: (context, index) {
-                      return _buildAssignmentCard(_filteredAssignments[index]);
-                    },
-                  ),
-          ),
-        ],
-      ),
     );
   }
 
-  Widget _buildStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Text(
-            title,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
+  Widget _buildErrorWidget() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.construction, size: 64, color: Colors.grey.shade400),
+          Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
           const SizedBox(height: 16),
           Text(
-            'No Installation Tasks',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade600,
-            ),
+            'Error loading installations',
+            style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
           Text(
-            'You have no installation assignments at this time.',
-            style: TextStyle(color: Colors.grey.shade500),
+            _error!,
+            style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(onPressed: _loadData, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsHeader() {
+    if (_workStats == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.green[600]!, Colors.green[400]!],
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildStatItem(
+              'Projects',
+              _workStats!['total_projects'].toString(),
+              Icons.work_outline,
+            ),
+          ),
+          Expanded(
+            child: _buildStatItem(
+              'Work Items',
+              '${_workStats!['completed_work_items']}/${_workStats!['total_work_items']}',
+              Icons.check_circle_outline,
+            ),
+          ),
+          Expanded(
+            child: _buildStatItem(
+              'Hours',
+              _workStats!['total_hours'].toString(),
+              Icons.access_time,
+            ),
+          ),
+          Expanded(
+            child: _buildStatItem(
+              'Complete',
+              '${_workStats!['completion_rate']}%',
+              Icons.trending_up,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAssignmentCard(InstallationWorkAssignment assignment) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _openTaskDetail(assignment),
+  Widget _buildStatItem(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.white, size: 24),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActiveSessionCard() {
+    if (_activeSession == null) return const SizedBox.shrink();
+
+    final workItem = _activeSession!['installation_work_items'];
+    final project = workItem['installation_projects'];
+    final customer = project['customers'];
+    final startTime = DateTime.parse(_activeSession!['start_time']);
+    final duration = DateTime.now().difference(startTime);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Card(
+        color: Colors.orange[50],
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Row
               Row(
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          assignment.customerName,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.location_on,
-                              size: 16,
-                              color: Colors.grey.shade600,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                assignment.customerAddress,
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 14,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                  Icon(Icons.play_circle_filled, color: Colors.orange[600]),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Active Work Session',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange[800],
                     ),
                   ),
+                  const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(
-                        assignment.status,
-                      ).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: _getStatusColor(assignment.status),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _getStatusIcon(assignment.status),
-                          size: 16,
-                          color: _getStatusColor(assignment.status),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          assignment.statusDisplayName,
-                          style: TextStyle(
-                            color: _getStatusColor(assignment.status),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Progress Bar
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Progress',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                      Text(
-                        '${assignment.completionPercentage.toInt()}%',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  LinearProgressIndicator(
-                    value: assignment.completionPercentage / 100,
-                    backgroundColor: Colors.grey.shade200,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      _getStatusColor(assignment.status),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Sub-tasks Overview
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: InstallationSubTask.values.map((subTask) {
-                  final status =
-                      assignment.subTasksStatus[subTask] ??
-                      InstallationTaskStatus.pending;
-                  return Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: _getSubTaskStatusColor(status).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _getSubTaskStatusColor(status),
-                        width: 1,
-                      ),
+                      color: Colors.orange[100],
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      InstallationWorkAssignment.getSubTaskDisplayName(subTask),
+                      '${duration.inHours}:${(duration.inMinutes % 60).toString().padLeft(2, '0')}',
                       style: TextStyle(
-                        fontSize: 11,
-                        color: _getSubTaskStatusColor(status),
-                        fontWeight: FontWeight.w500,
+                        color: Colors.orange[800],
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Bottom Info
-              Row(
-                children: [
-                  Icon(
-                    Icons.calendar_today,
-                    size: 16,
-                    color: Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Assigned: ${DateFormat('dd/MM/yyyy').format(assignment.assignedDate)}',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                  ),
-                  const Spacer(),
-                  Icon(Icons.person, size: 16, color: Colors.grey.shade600),
-                  const SizedBox(width: 4),
-                  Text(
-                    'By: ${assignment.assignedByName}',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                   ),
                 ],
+              ),
+              const SizedBox(height: 8),
+              Text('Customer: ${customer['name']}'),
+              Text('Work Type: ${workItem['work_type']}'),
+              Text('Location: ${customer['address']}'),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: () => _navigateToWorkDetail(workItem['id']),
+                icon: const Icon(Icons.visibility),
+                label: const Text('View Details'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange[600],
+                  foregroundColor: Colors.white,
+                ),
               ),
             ],
           ),
@@ -476,20 +263,374 @@ class _EmployeeInstallationScreenState
     );
   }
 
-  Color _getSubTaskStatusColor(InstallationTaskStatus status) {
-    switch (status) {
-      case InstallationTaskStatus.pending:
-        return Colors.grey;
-      case InstallationTaskStatus.assigned:
-        return Colors.blue;
-      case InstallationTaskStatus.inProgress:
-        return Colors.orange;
-      case InstallationTaskStatus.completed:
-        return Colors.green;
-      case InstallationTaskStatus.verified:
-        return Colors.teal;
-      case InstallationTaskStatus.rejected:
-        return Colors.red;
+  Widget _buildViewSelector() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () => setState(() => _selectedView = 'projects'),
+              icon: const Icon(Icons.business),
+              label: const Text('Projects'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _selectedView == 'projects'
+                    ? Colors.green
+                    : Colors.grey[300],
+                foregroundColor: _selectedView == 'projects'
+                    ? Colors.white
+                    : Colors.black87,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () => setState(() => _selectedView = 'workItems'),
+              icon: const Icon(Icons.work),
+              label: const Text('Work Items'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _selectedView == 'workItems'
+                    ? Colors.green
+                    : Colors.grey[300],
+                foregroundColor: _selectedView == 'workItems'
+                    ? Colors.white
+                    : Colors.black87,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProjectsList() {
+    if (_assignments.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.work_outline, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'No Installation Projects Assigned',
+              style: TextStyle(fontSize: 18, color: Colors.grey),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'You will see your assigned installation projects here',
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
     }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _assignments.length,
+      itemBuilder: (context, index) {
+        final project = _assignments[index];
+        return _buildProjectCard(project);
+      },
+    );
+  }
+
+  Widget _buildProjectCard(InstallationProject project) {
+    final workItems = project.workItems;
+    final completedItems = workItems
+        .where((item) => item.status == 'completed')
+        .length;
+    final totalItems = workItems.length;
+    final progress = totalItems > 0 ? (completedItems / totalItems) : 0.0;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    project.customerName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _getProjectStatusColor(progress),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${(progress * 100).toInt()}%',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.location_on, size: 16, color: Colors.grey),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    project.customerAddress,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ),
+              ],
+            ),
+            if (project.scheduledStartDate != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(Icons.schedule, size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Scheduled: ${DateFormat('MMM dd, yyyy').format(project.scheduledStartDate!)}',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 12),
+            Text(
+              'Work Items: $completedItems/$totalItems completed',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.grey[300],
+              valueColor: AlwaysStoppedAnimation<Color>(
+                _getProjectStatusColor(progress),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _viewProjectWorkItems(project),
+                    icon: const Icon(Icons.list),
+                    label: const Text('View Work Items'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => _navigateToProject(project),
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Start Work'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWorkItemsList() {
+    if (_workItems.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.work_off, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'No Work Items Assigned',
+              style: TextStyle(fontSize: 18, color: Colors.grey),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Individual work items will appear here when assigned',
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _workItems.length,
+      itemBuilder: (context, index) {
+        final workItem = _workItems[index];
+        return _buildWorkItemCard(workItem);
+      },
+    );
+  }
+
+  Widget _buildWorkItemCard(InstallationWorkItem workItem) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: _getWorkItemStatusColor(workItem.status),
+          child: Icon(
+            _getWorkItemStatusIcon(workItem.status),
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          workItem.workType.displayName,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Progress: ${workItem.progressPercentage}%'),
+            Text('Status: ${workItem.status.displayName}'),
+            if (workItem.estimatedHours != null)
+              Text('Est. Hours: ${workItem.estimatedHours}'),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (workItem.progressPercentage < 100)
+              Icon(Icons.play_arrow, color: Colors.green[600]),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+        onTap: () => _navigateToWorkDetail(workItem.id),
+      ),
+    );
+  }
+
+  Color _getProjectStatusColor(double progress) {
+    if (progress >= 1.0) return Colors.green;
+    if (progress >= 0.5) return Colors.orange;
+    return Colors.red;
+  }
+
+  Color _getWorkItemStatusColor(WorkStatus status) {
+    switch (status) {
+      case WorkStatus.completed:
+      case WorkStatus.verified:
+      case WorkStatus.acknowledged:
+      case WorkStatus.approved:
+        return Colors.green;
+      case WorkStatus.inProgress:
+        return Colors.orange;
+      case WorkStatus.awaitingCompletion:
+        return Colors.blue;
+      case WorkStatus.notStarted:
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getWorkItemStatusIcon(WorkStatus status) {
+    switch (status) {
+      case WorkStatus.completed:
+      case WorkStatus.verified:
+      case WorkStatus.acknowledged:
+      case WorkStatus.approved:
+        return Icons.check;
+      case WorkStatus.inProgress:
+        return Icons.play_arrow;
+      case WorkStatus.awaitingCompletion:
+        return Icons.pause;
+      case WorkStatus.notStarted:
+      default:
+        return Icons.pending;
+    }
+  }
+
+  void _navigateToProject(InstallationProject project) {
+    // Navigate to project overview with all work items
+    Navigator.pushNamed(
+      context,
+      '/employee/project-detail',
+      arguments: project,
+    );
+  }
+
+  void _navigateToWorkDetail(String workItemId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EmployeeWorkDetailScreen(workItemId: workItemId),
+      ),
+    );
+  }
+
+  void _viewProjectWorkItems(InstallationProject project) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.9,
+        minChildSize: 0.5,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    '${project.customerName} - Work Items',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: project.workItems.length,
+                    itemBuilder: (context, index) {
+                      final workItem = project.workItems[index];
+                      return _buildWorkItemCard(workItem);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }

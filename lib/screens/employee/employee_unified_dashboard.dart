@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../models/customer_model.dart';
 import '../../models/user_model.dart';
+import '../../models/installation_work_model.dart';
 import '../../services/customer_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/installation_service.dart';
 import 'employee_sidebar.dart';
+import 'employee_work_detail_screen.dart';
 import '../../config/app_router.dart';
 
 class EmployeeUnifiedDashboard extends StatefulWidget {
@@ -18,6 +21,7 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
     with TickerProviderStateMixin {
   final CustomerService _customerService = CustomerService();
   final AuthService _authService = AuthService();
+  final InstallationService _installationService = InstallationService();
 
   late TabController _tabController;
 
@@ -197,7 +201,7 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    customer.currentPhase ?? 'Unknown',
+                    customer.currentPhase.toUpperCase(),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
@@ -223,7 +227,7 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
             Row(
               children: [
                 Text(
-                  'Phase: ${customer.currentPhase?.toUpperCase() ?? 'N/A'}',
+                  'Phase: ${customer.currentPhase.toUpperCase()}',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -231,13 +235,11 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
                 ),
               ],
             ),
-            if (customer.createdAt != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Created: ${_formatDateTime(customer.createdAt)}',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-            ],
+            const SizedBox(height: 4),
+            Text(
+              'Created: ${_formatDateTime(customer.createdAt)}',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
             const SizedBox(height: 12),
 
             // Employee actions based on phase
@@ -259,56 +261,92 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
                 ),
                 const SizedBox(width: 8),
 
-                // Phase-specific actions for employees
-                if (customer.currentPhase == 'application') ...[
-                  ElevatedButton.icon(
-                    onPressed: () => _conductSiteSurvey(customer),
-                    icon: const Icon(Icons.location_searching, size: 16),
-                    label: const Text('Site Survey'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-
-                if (customer.currentPhase == 'survey') ...[
-                  ElevatedButton.icon(
-                    onPressed: () => _completeSurvey(customer),
-                    icon: const Icon(Icons.assignment_turned_in, size: 16),
-                    label: const Text('Complete Survey'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purple,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-
                 if (customer.currentPhase == 'installation') ...[
-                  ElevatedButton.icon(
-                    onPressed: () => _completeInstallation(customer),
-                    icon: const Icon(Icons.check_circle, size: 16),
-                    label: const Text('Complete'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                  FutureBuilder<List<InstallationWorkItem>>(
+                    future: _getAssignedWorkItems(customer.id),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Container(
+                          width: 120,
+                          height: 36,
+                          padding: const EdgeInsets.all(8),
+                          child: const Center(
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      }
+
+                      if (snapshot.hasError ||
+                          !snapshot.hasData ||
+                          snapshot.data!.isEmpty) {
+                        // Employee is not assigned to this installation
+                        return const SizedBox.shrink();
+                      }
+
+                      final workItems = snapshot.data!;
+
+                      return Row(
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: () =>
+                                _viewInstallationWork(customer, workItems),
+                            icon: const Icon(Icons.construction, size: 16),
+                            label: Text(
+                              'Installation Work (${workItems.length})',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.deepOrange,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      );
+                    },
+                  ),
+                ] else ...[
+                  // For non-installation phases, keep existing buttons
+                  if (customer.currentPhase == 'application') ...[
+                    ElevatedButton.icon(
+                      onPressed: () => _conductSiteSurvey(customer),
+                      icon: const Icon(Icons.location_searching, size: 16),
+                      label: const Text('Site Survey'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
+                    const SizedBox(width: 8),
+                  ],
+
+                  if (customer.currentPhase == 'survey') ...[
+                    ElevatedButton.icon(
+                      onPressed: () => _completeSurvey(customer),
+                      icon: const Icon(Icons.assignment_turned_in, size: 16),
+                      label: const Text('Complete Survey'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.purple,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                 ],
 
                 // General update button for any phase
@@ -460,32 +498,135 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
     );
   }
 
-  void _completeInstallation(CustomerModel customer) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Complete Installation'),
-        content: Text('Mark installation as completed for ${customer.name}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+  // Get work items assigned to the current employee for a specific customer
+  Future<List<InstallationWorkItem>> _getAssignedWorkItems(
+    String customerId,
+  ) async {
+    try {
+      if (_currentUser == null) return [];
+
+      final project = await _installationService.getInstallationProject(
+        customerId,
+      );
+      if (project == null) return [];
+
+      // Filter work items assigned to current employee
+      final assignedWorkItems = project.workItems.where((workItem) {
+        return workItem.leadEmployeeId == _currentUser!.id ||
+            workItem.teamMemberIds.contains(_currentUser!.id);
+      }).toList();
+
+      return assignedWorkItems;
+    } catch (e) {
+      print('Error getting assigned work items: $e');
+      return [];
+    }
+  }
+
+  void _viewInstallationWork(
+    CustomerModel customer,
+    List<InstallationWorkItem> workItems,
+  ) {
+    // If only one work item, navigate directly to detail screen
+    if (workItems.length == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              EmployeeWorkDetailScreen(workItemId: workItems.first.id),
+        ),
+      );
+    } else {
+      // Show selection dialog for multiple work items
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('${customer.name} - Installation Work'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Select work item to manage:'),
+                const SizedBox(height: 16),
+                ...workItems
+                    .map(
+                      (workItem) => Card(
+                        child: ListTile(
+                          leading: Icon(
+                            _getWorkTypeIcon(workItem.workType),
+                            color: _getStatusColor(workItem.status),
+                          ),
+                          title: Text(workItem.workType.displayName),
+                          subtitle: Text(
+                            'Status: ${workItem.status.displayName}',
+                          ),
+                          trailing: Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                            color: Colors.grey,
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EmployeeWorkDetailScreen(
+                                  workItemId: workItem.id,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ],
+            ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Installation marked as completed'),
-                ),
-              );
-              _loadCustomers();
-            },
-            child: const Text('Complete'),
-          ),
-        ],
-      ),
-    );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  IconData _getWorkTypeIcon(InstallationWorkType workType) {
+    switch (workType) {
+      case InstallationWorkType.structureWork:
+        return Icons.construction;
+      case InstallationWorkType.panels:
+        return Icons.solar_power;
+      case InstallationWorkType.inverterWiring:
+        return Icons.electrical_services;
+      case InstallationWorkType.earthing:
+        return Icons.electrical_services;
+      case InstallationWorkType.lightningArrestor:
+        return Icons.flash_on;
+    }
+  }
+
+  Color _getStatusColor(WorkStatus status) {
+    switch (status) {
+      case WorkStatus.notStarted:
+        return Colors.grey;
+      case WorkStatus.inProgress:
+        return Colors.orange;
+      case WorkStatus.completed:
+        return Colors.green;
+      case WorkStatus.verified:
+        return Colors.blue;
+      case WorkStatus.acknowledged:
+        return Colors.purple;
+      case WorkStatus.approved:
+        return Colors.teal;
+      case WorkStatus.awaitingCompletion:
+        return Colors.amber;
+    }
   }
 
   @override

@@ -117,17 +117,17 @@ class MaterialAllocationItemModel {
   // Helper getters
   int get pendingQuantity => requiredQuantity - allocatedQuantity;
   int get pendingDelivery => allocatedQuantity - (deliveredQuantity ?? 0);
-  
+
   bool get isFullyAllocated => allocatedQuantity >= requiredQuantity;
   bool get isFullyDelivered => (deliveredQuantity ?? 0) >= allocatedQuantity;
   bool get hasStock => (availableStock ?? 0) > 0;
   bool get canAllocateMore => !isFullyAllocated && hasStock;
-  
+
   double get allocationPercentage {
     if (requiredQuantity == 0) return 0.0;
     return (allocatedQuantity / requiredQuantity) * 100;
   }
-  
+
   double get deliveryPercentage {
     if (allocatedQuantity == 0) return 0.0;
     return ((deliveredQuantity ?? 0) / allocatedQuantity) * 100;
@@ -140,7 +140,8 @@ class MaterialAllocationItemModel {
   }
 
   String get deliveryStatus {
-    if (deliveredQuantity == null || deliveredQuantity == 0) return 'Not Delivered';
+    if (deliveredQuantity == null || deliveredQuantity == 0)
+      return 'Not Delivered';
     if (isFullyDelivered) return 'Fully Delivered';
     return 'Partially Delivered';
   }
@@ -152,7 +153,7 @@ class MaterialAllocationItemModel {
 
   // Stock validation
   bool get hasEnoughStock => (availableStock ?? 0) >= requiredQuantity;
-  int get shortfallQuantity => 
+  int get shortfallQuantity =>
       hasEnoughStock ? 0 : requiredQuantity - (availableStock ?? 0);
 
   // Display helpers
@@ -164,6 +165,7 @@ class MaterialAllocationItemModel {
   }
 
   String get displayName => itemName ?? itemCode ?? 'Unknown Item';
-  String get categoryDisplay => 
-      subcategory != null ? '$category > $subcategory' : (category ?? 'Uncategorized');
+  String get categoryDisplay => subcategory != null
+      ? '$category > $subcategory'
+      : (category ?? 'Uncategorized');
 }

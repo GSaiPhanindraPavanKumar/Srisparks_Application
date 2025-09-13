@@ -24,7 +24,7 @@ class LocationService {
       if (kIsWeb) {
         final webService = WebLocationService();
         final result = await webService.getCurrentLocation();
-        
+
         if (result.success) {
           // Create a Position-like object for web
           return Position(
@@ -74,12 +74,7 @@ class LocationService {
   }
 
   // Calculate distance between two coordinates
-  double calculateDistance(
-    double lat1,
-    double lon1,
-    double lat2,
-    double lon2,
-  ) {
+  double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
     if (kIsWeb) {
       final webService = WebLocationService();
       return webService.calculateDistance(lat1, lon1, lat2, lon2);

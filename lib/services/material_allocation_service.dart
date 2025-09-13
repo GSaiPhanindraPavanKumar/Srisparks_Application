@@ -96,9 +96,12 @@ class MaterialAllocationService {
   }) async {
     try {
       final updateData = <String, dynamic>{};
-      if (requiredQuantity != null) updateData['required_quantity'] = requiredQuantity;
-      if (allocatedQuantity != null) updateData['allocated_quantity'] = allocatedQuantity;
-      if (deliveredQuantity != null) updateData['delivered_quantity'] = deliveredQuantity;
+      if (requiredQuantity != null)
+        updateData['required_quantity'] = requiredQuantity;
+      if (allocatedQuantity != null)
+        updateData['allocated_quantity'] = allocatedQuantity;
+      if (deliveredQuantity != null)
+        updateData['delivered_quantity'] = deliveredQuantity;
       if (notes != null) updateData['notes'] = notes;
 
       final response = await _supabase
@@ -137,7 +140,9 @@ class MaterialAllocationService {
   }
 
   // Confirm allocation (changes status and updates stock)
-  static Future<MaterialAllocationModel> confirmAllocation(String allocationId) async {
+  static Future<MaterialAllocationModel> confirmAllocation(
+    String allocationId,
+  ) async {
     try {
       final response = await _supabase
           .from('material_allocations')
@@ -156,7 +161,9 @@ class MaterialAllocationService {
   }
 
   // Mark allocation as delivered
-  static Future<MaterialAllocationModel> markAsDelivered(String allocationId) async {
+  static Future<MaterialAllocationModel> markAsDelivered(
+    String allocationId,
+  ) async {
     try {
       final response = await _supabase
           .from('material_allocations')
@@ -175,7 +182,9 @@ class MaterialAllocationService {
   }
 
   // Get allocation with items
-  static Future<MaterialAllocationModel> getAllocation(String allocationId) async {
+  static Future<MaterialAllocationModel> getAllocation(
+    String allocationId,
+  ) async {
     try {
       // Get allocation details
       final allocationResponse = await _supabase
@@ -381,7 +390,9 @@ class MaterialAllocationService {
   }
 
   // Get stock availability for items
-  static Future<Map<String, int>> getStockAvailability(List<String> stockItemIds) async {
+  static Future<Map<String, int>> getStockAvailability(
+    List<String> stockItemIds,
+  ) async {
     try {
       final response = await _supabase
           .from('stock_items')
@@ -406,9 +417,7 @@ class MaterialAllocationService {
     DateTime? toDate,
   }) async {
     try {
-      var query = _supabase
-          .from('material_allocation_summary')
-          .select('*');
+      var query = _supabase.from('material_allocation_summary').select('*');
 
       if (officeId != null) {
         query = query.eq('office_id', officeId);
@@ -439,8 +448,10 @@ class MaterialAllocationService {
 
       for (final allocation in response) {
         totalItems += (allocation['total_items'] ?? 0) as int;
-        totalAllocatedQuantity += (allocation['total_allocated_quantity'] ?? 0) as int;
-        totalDeliveredQuantity += (allocation['total_delivered_quantity'] ?? 0) as int;
+        totalAllocatedQuantity +=
+            (allocation['total_allocated_quantity'] ?? 0) as int;
+        totalDeliveredQuantity +=
+            (allocation['total_delivered_quantity'] ?? 0) as int;
         totalValue += (allocation['total_value'] ?? 0.0) as double;
 
         final status = allocation['status'] as String;
@@ -454,11 +465,11 @@ class MaterialAllocationService {
         'total_delivered_quantity': totalDeliveredQuantity,
         'total_value': totalValue,
         'status_counts': statusCounts,
-        'allocation_completion_rate': totalItems > 0 
-            ? (totalAllocatedQuantity / totalItems) * 100 
+        'allocation_completion_rate': totalItems > 0
+            ? (totalAllocatedQuantity / totalItems) * 100
             : 0.0,
-        'delivery_completion_rate': totalAllocatedQuantity > 0 
-            ? (totalDeliveredQuantity / totalAllocatedQuantity) * 100 
+        'delivery_completion_rate': totalAllocatedQuantity > 0
+            ? (totalDeliveredQuantity / totalAllocatedQuantity) * 100
             : 0.0,
       };
     } catch (e) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../models/installation_work_model.dart';
 import '../../models/user_model.dart';
 import '../../models/customer_model.dart';
@@ -6,6 +7,7 @@ import '../../services/installation_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/customer_service.dart';
 import 'assign_installation_work_screen.dart';
+import 'work_item_details_dashboard.dart';
 
 class InstallationManagementScreen extends StatefulWidget {
   final String customerId;
@@ -503,7 +505,20 @@ class _InstallationManagementScreenState
                 const SizedBox(width: 8),
 
                 TextButton.icon(
-                  onPressed: () => _showWorkItemDetails(item),
+                  onPressed: () {
+                    print(
+                      'View Details clicked for: ${item.workType.displayName}',
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'View Details clicked for ${item.workType.displayName}',
+                        ),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                    _showWorkItemDetails(item);
+                  },
                   icon: Icon(Icons.visibility, size: 16),
                   label: Text('View Details'),
                 ),
@@ -699,8 +714,18 @@ class _InstallationManagementScreenState
   }
 
   void _showWorkItemDetails(InstallationWorkItem item) {
-    // TODO: Navigate to detailed work item screen
-    _showMessage('Work item details: ${item.workType.displayName}');
+    print(
+      'Navigating to work item details dashboard for: ${item.workType.displayName}',
+    );
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => WorkItemDetailsDashboard(
+          workItem: item,
+          customerName: widget.customerName,
+        ),
+      ),
+    );
   }
 
   void _showEmployeeLocationHistory(EmployeeStatus employee) {
@@ -787,4 +812,341 @@ class EmployeeStatus {
     required this.totalHours,
     required this.assignedWorkTypes,
   });
+}
+
+// Work Item Details Dialog
+class WorkItemDetailsDialog extends StatefulWidget {
+  final InstallationWorkItem workItem;
+  final InstallationService installationService;
+
+  const WorkItemDetailsDialog({
+    super.key,
+    required this.workItem,
+    required this.installationService,
+  });
+
+  @override
+  State<WorkItemDetailsDialog> createState() => _WorkItemDetailsDialogState();
+}
+
+class _WorkItemDetailsDialogState extends State<WorkItemDetailsDialog> {
+  Map<String, List<Map<String, dynamic>>>? _employeeSessions;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    try {
+      print(
+        'WorkItemDetailsDialog initialized for work item: ${widget.workItem.id}',
+      );
+      _loadSessionDetails();
+    } catch (e) {
+      print('Error in WorkItemDetailsDialog initState: $e');
+    }
+  }
+
+  Future<void> _loadSessionDetails() async {
+    try {
+      print('Loading session details for work item: ${widget.workItem.id}');
+      final sessions = await widget.installationService
+          .getWorkItemSessionDetails(widget.workItem.id);
+      print('Loaded ${sessions.keys.length} employee sessions');
+      if (mounted) {
+        setState(() {
+          _employeeSessions = sessions;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading session details: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load session details: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.all(16),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 600,
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.indigo,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  topRight: Radius.circular(8),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.work, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${_getWorkTypeDisplayName(widget.workItem.workType.name)} - Work Sessions',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+
+            // Content
+            Flexible(
+              child: _isLoading
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  : _buildSessionsContent(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSessionsContent() {
+    if (_employeeSessions == null || _employeeSessions!.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.schedule, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'No work sessions found',
+              style: TextStyle(fontSize: 18, color: Colors.grey),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Work sessions will appear here when employees start working',
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _employeeSessions!.length,
+      itemBuilder: (context, index) {
+        final employeeName = _employeeSessions!.keys.elementAt(index);
+        final sessions = _employeeSessions![employeeName]!;
+        return _buildEmployeeSessionCard(employeeName, sessions);
+      },
+    );
+  }
+
+  Widget _buildEmployeeSessionCard(
+    String employeeName,
+    List<Map<String, dynamic>> sessions,
+  ) {
+    // Calculate total time worked by this employee
+    Duration totalWorkTime = Duration.zero;
+    for (final session in sessions) {
+      if (session['end_time'] != null) {
+        final startTime = DateTime.parse(session['start_time']);
+        final endTime = DateTime.parse(session['end_time']);
+        totalWorkTime += endTime.difference(startTime);
+      }
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: ExpansionTile(
+        leading: CircleAvatar(
+          backgroundColor: Colors.indigo,
+          child: Text(
+            employeeName.substring(0, 1).toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        title: Text(
+          employeeName,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Total Sessions: ${sessions.length}'),
+            Text('Total Time: ${_formatDuration(totalWorkTime)}'),
+          ],
+        ),
+        children: sessions
+            .map((session) => _buildSessionTile(session))
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildSessionTile(Map<String, dynamic> session) {
+    final startTime = DateTime.parse(session['start_time']);
+    final endTime = session['end_time'] != null
+        ? DateTime.parse(session['end_time'])
+        : null;
+    final duration = endTime != null ? endTime.difference(startTime) : null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                endTime != null ? Icons.check_circle : Icons.schedule,
+                color: endTime != null ? Colors.green : Colors.orange,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                endTime != null ? 'Completed Session' : 'Active Session',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: endTime != null ? Colors.green : Colors.orange,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Start Time
+          Row(
+            children: [
+              const Icon(Icons.play_arrow, size: 16, color: Colors.grey),
+              const SizedBox(width: 4),
+              const Text(
+                'Started: ',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              Text(DateFormat('dd/MM/yyyy HH:mm').format(startTime)),
+            ],
+          ),
+
+          // End Time
+          if (endTime != null)
+            Row(
+              children: [
+                const Icon(Icons.stop, size: 16, color: Colors.grey),
+                const SizedBox(width: 4),
+                const Text(
+                  'Ended: ',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+                Text(DateFormat('dd/MM/yyyy HH:mm').format(endTime)),
+              ],
+            )
+          else
+            const Row(
+              children: [
+                Icon(Icons.schedule, size: 16, color: Colors.orange),
+                SizedBox(width: 4),
+                Text(
+                  'In Progress...',
+                  style: TextStyle(
+                    color: Colors.orange,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+
+          // Duration
+          if (duration != null)
+            Row(
+              children: [
+                const Icon(Icons.timer, size: 16, color: Colors.grey),
+                const SizedBox(width: 4),
+                const Text(
+                  'Duration: ',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+                Text(_formatDuration(duration)),
+              ],
+            ),
+
+          // Notes
+          if (session['session_notes'] != null &&
+              session['session_notes'].toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.note, size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'Notes: ',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  Expanded(child: Text(session['session_notes'].toString())),
+                ],
+              ),
+            ),
+
+          const Divider(height: 16),
+        ],
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    } else {
+      return '${minutes}m';
+    }
+  }
+
+  String _getWorkTypeDisplayName(String workType) {
+    switch (workType.toLowerCase()) {
+      case 'structurework':
+        return 'Structure Work';
+      case 'panels':
+        return 'Panel Installation';
+      case 'inverterwiring':
+        return 'Inverter Wiring';
+      case 'earthing':
+        return 'Earthing System';
+      case 'lightningarrestor':
+        return 'Lightning Arrestor';
+      default:
+        return workType;
+    }
+  }
 }

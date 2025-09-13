@@ -14,7 +14,8 @@ class StockService {
         .order('name', ascending: true);
 
     // Explicitly cast to List<Map<String, dynamic>> and then map to StockItemModel
-    final List<Map<String, dynamic>> stockItemData = List<Map<String, dynamic>>.from(response);
+    final List<Map<String, dynamic>> stockItemData =
+        List<Map<String, dynamic>>.from(response);
     return stockItemData.map((item) => StockItemModel.fromJson(item)).toList();
   }
 
@@ -108,7 +109,8 @@ class StockService {
     final response = await query.order('created_at', ascending: false);
 
     // Explicitly cast to List<Map<String, dynamic>> and then map to StockLogModel
-    final List<Map<String, dynamic>> stockLogData = List<Map<String, dynamic>>.from(response);
+    final List<Map<String, dynamic>> stockLogData =
+        List<Map<String, dynamic>>.from(response);
     return stockLogData.map((log) => StockLogModel.fromJson(log)).toList();
   }
 

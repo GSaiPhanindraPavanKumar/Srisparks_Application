@@ -15,7 +15,7 @@ void main() {
       // Test 1: Create allocation
       final allocation = await MaterialAllocationService.createAllocation(
         customerId: 'test-customer-id',
-        officeId: 'test-office-id', 
+        officeId: 'test-office-id',
         allocatedById: 'test-user-id',
         notes: 'Test allocation',
       );
@@ -46,9 +46,8 @@ void main() {
       expect(updatedItem.isFullyAllocated, isTrue);
 
       // Test 4: Confirm allocation
-      final confirmedAllocation = await MaterialAllocationService.confirmAllocation(
-        allocation.id!,
-      );
+      final confirmedAllocation =
+          await MaterialAllocationService.confirmAllocation(allocation.id!);
 
       expect(confirmedAllocation.status, equals('confirmed'));
       expect(confirmedAllocation.isConfirmed, isTrue);
@@ -115,7 +114,7 @@ void main() {
           deliveredQuantity: 8,
         ),
         MaterialAllocationItemModel(
-          materialAllocationId: 'test-allocation', 
+          materialAllocationId: 'test-allocation',
           stockItemId: 'item-2',
           requiredQuantity: 20,
           allocatedQuantity: 15,
@@ -134,7 +133,10 @@ void main() {
       expect(allocation.totalRequiredItems, equals(30));
       expect(allocation.totalAllocatedItems, equals(25));
       expect(allocation.totalDeliveredItems, equals(18));
-      expect(allocation.allocationCompletionPercentage, equals(83.33333333333334));
+      expect(
+        allocation.allocationCompletionPercentage,
+        equals(83.33333333333334),
+      );
       expect(allocation.deliveryCompletionPercentage, equals(72.0));
 
       print('Allocation model aggregations test passed!');
@@ -195,7 +197,7 @@ void demonstrateAllocationWorkflow() async {
       requiredQuantity: 20,
       allocatedQuantity: 0,
     );
-    
+
     final inverter = await MaterialAllocationService.addAllocationItem(
       materialAllocationId: allocation.id!,
       stockItemId: 'inverter-5kw',
@@ -210,7 +212,7 @@ void demonstrateAllocationWorkflow() async {
       itemId: solarPanels.id!,
       allocatedQuantity: 18, // 2 short
     );
-    
+
     await MaterialAllocationService.updateAllocationItem(
       itemId: inverter.id!,
       allocatedQuantity: 1, // Full allocation
@@ -219,9 +221,8 @@ void demonstrateAllocationWorkflow() async {
 
     // 4. Confirm allocation
     print('4. Confirming allocation...');
-    final confirmedAllocation = await MaterialAllocationService.confirmAllocation(
-      allocation.id!,
-    );
+    final confirmedAllocation =
+        await MaterialAllocationService.confirmAllocation(allocation.id!);
     print('✓ Allocation confirmed with status: ${confirmedAllocation.status}');
 
     // 5. Check final status
@@ -229,11 +230,13 @@ void demonstrateAllocationWorkflow() async {
     final finalAllocation = await MaterialAllocationService.getAllocation(
       allocation.id!,
     );
-    
+
     print('✓ Final allocation summary:');
     print('  - Total required: ${finalAllocation.totalRequiredItems}');
     print('  - Total allocated: ${finalAllocation.totalAllocatedItems}');
-    print('  - Completion: ${finalAllocation.allocationCompletionPercentage.toStringAsFixed(1)}%');
+    print(
+      '  - Completion: ${finalAllocation.allocationCompletionPercentage.toStringAsFixed(1)}%',
+    );
     print('  - Status: ${finalAllocation.statusDisplayName}');
 
     print('\n=== Workflow completed successfully! ===');

@@ -88,6 +88,9 @@ class CustomerModel {
   final String?
   materialAllocationHistory; // JSON string containing allocation history
 
+  // Installation Project Fields
+  final String? installationProjectId; // Reference to the installation project
+
   CustomerModel({
     required this.id,
     required this.name,
@@ -168,6 +171,9 @@ class CustomerModel {
     this.materialDeliveredById,
     this.materialDeliveredDate,
     this.materialAllocationHistory,
+
+    // Installation Project Fields
+    this.installationProjectId,
   });
 
   // Helper method to safely parse JSON fields from various formats
@@ -292,6 +298,9 @@ class CustomerModel {
       materialAllocationHistory: _parseJsonField(
         json['material_allocation_history'],
       ),
+
+      // Installation Project Fields
+      installationProjectId: json['installation_project_id'],
     );
   }
 
@@ -374,6 +383,9 @@ class CustomerModel {
       'material_delivered_by_id': materialDeliveredById,
       'material_delivered_date': materialDeliveredDate?.toIso8601String(),
       'material_allocation_history': materialAllocationHistory,
+
+      // Installation Project Fields
+      'installation_project_id': installationProjectId,
     };
   }
 

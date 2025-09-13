@@ -829,6 +829,55 @@ class CustomerService {
     }
   }
 
+  // Get customer by installation project ID
+  Future<CustomerModel?> getCustomerByInstallationProjectId(
+    String installationProjectId,
+  ) async {
+    try {
+      final response = await _supabase
+          .from('customers')
+          .select()
+          .eq('installation_project_id', installationProjectId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+      if (response == null) return null;
+
+      return CustomerModel.fromJson(response);
+    } catch (e) {
+      print('Error getting customer by installation project ID: $e');
+      return null;
+    }
+  }
+
+  // Update customer's installation project ID
+  Future<void> updateCustomerInstallationProjectId(
+    String customerId,
+    String installationProjectId,
+  ) async {
+    try {
+      await _supabase
+          .from('customers')
+          .update({
+            'installation_project_id': installationProjectId,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', customerId);
+
+      // Log the activity
+      await _logActivity(
+        activityType: ActivityType.customer_updated,
+        description: 'Installation project assigned to customer',
+        entityId: customerId,
+        entityType: 'customer',
+        newData: {'installation_project_id': installationProjectId},
+      );
+    } catch (e) {
+      print('Error updating customer installation project ID: $e');
+      throw Exception('Failed to update customer installation project: $e');
+    }
+  }
+
   // Private method to log activities
   Future<void> _logActivity({
     required ActivityType activityType,

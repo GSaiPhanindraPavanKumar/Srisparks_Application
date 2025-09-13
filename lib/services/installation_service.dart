@@ -30,7 +30,8 @@ class InstallationService {
       // First create the installation project (without duplicated customer data)
       final projectData = {
         'customer_id': customerId,
-        'status': 'created',
+        'status':
+            'assigned', // Status is 'assigned' when installation is created
         'assigned_by_id': currentUser.id,
         'assigned_date': DateTime.now().toIso8601String(),
         'scheduled_start_date': scheduledStartDate?.toIso8601String(),
@@ -48,6 +49,19 @@ class InstallationService {
 
       final projectId = projectResponse['id'];
       print('Created project with ID: $projectId');
+
+      // Update customer table with the installation project ID
+      await _supabase
+          .from('customers')
+          .update({
+            'installation_project_id': projectId,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', customerId);
+
+      print(
+        'Updated customer $customerId with installation project ID: $projectId',
+      );
 
       // Create work items for each work type
       List<String> workItemIds = [];
@@ -333,6 +347,9 @@ class InstallationService {
               'updated_at': DateTime.now().toIso8601String(),
             })
             .eq('id', workItemId);
+
+        // Update project status to in_progress when work starts
+        await updateProjectStatusOnWorkStart(workItemId);
       }
 
       // Save session to database
@@ -830,6 +847,11 @@ class InstallationService {
           .from('installation_work_items')
           .update(updateData)
           .eq('id', workItemId);
+
+      // Update project status if work is starting (status changed to inProgress)
+      if (status == 'inProgress') {
+        await updateProjectStatusOnWorkStart(workItemId);
+      }
     } catch (e) {
       throw Exception('Failed to update work item status: $e');
     }
@@ -947,6 +969,9 @@ class InstallationService {
           })
           .eq('id', workItemId)
           .is_('start_time', null); // Only update if start_time is null
+
+      // Update project status to in_progress when work starts
+      await updateProjectStatusOnWorkStart(workItemId);
 
       return response['id'] as String;
     } catch (e) {
@@ -1241,10 +1266,125 @@ class InstallationService {
           .single();
 
       print('Work item verified successfully: $response');
+
+      // Check if all work items in the project are verified and update project status
+      await _checkAndUpdateProjectCompletion(workItemId);
+
       return true;
     } catch (e) {
       print('Error verifying work item: $e');
       throw Exception('Failed to verify work item: $e');
+    }
+  }
+
+  // Update project status to 'in_progress' and set started_date when first work item starts
+  Future<void> updateProjectStatusToInProgress(String projectId) async {
+    try {
+      print('Updating project status to in_progress: $projectId');
+
+      // Check if project is not already in progress or completed
+      final projectCheck = await _supabase
+          .from('installation_projects')
+          .select('status, started_date')
+          .eq('id', projectId)
+          .single();
+
+      if (projectCheck['status'] == 'assigned' &&
+          projectCheck['started_date'] == null) {
+        await _supabase
+            .from('installation_projects')
+            .update({
+              'status': 'in_progress',
+              'started_date': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', projectId);
+
+        print(
+          'Project $projectId status updated to in_progress with started_date',
+        );
+      }
+    } catch (e) {
+      print('Error updating project status to in_progress: $e');
+      // Don't throw here as this is a supplementary operation
+    }
+  }
+
+  // Update project status to 'in_progress' when work item starts
+  Future<void> updateProjectStatusOnWorkStart(String workItemId) async {
+    try {
+      // Get project ID from work item
+      final workItem = await _supabase
+          .from('installation_work_items')
+          .select('project_id')
+          .eq('id', workItemId)
+          .single();
+
+      await updateProjectStatusToInProgress(workItem['project_id']);
+    } catch (e) {
+      print('Error updating project status on work start: $e');
+      // Don't throw here as this is a supplementary operation
+    }
+  }
+
+  // Check if all work items are verified and update project to completed
+  Future<void> _checkAndUpdateProjectCompletion(String workItemId) async {
+    try {
+      // Get project ID from work item
+      final workItem = await _supabase
+          .from('installation_work_items')
+          .select('project_id')
+          .eq('id', workItemId)
+          .single();
+
+      final projectId = workItem['project_id'];
+
+      // Get all work items for this project
+      final allWorkItems = await _supabase
+          .from('installation_work_items')
+          .select('verification_status')
+          .eq('project_id', projectId);
+
+      // Check if all work items are verified
+      final allVerified = allWorkItems.every(
+        (item) => item['verification_status'] == 'verified',
+      );
+
+      if (allVerified && allWorkItems.isNotEmpty) {
+        // Update project status to completed
+        await _supabase
+            .from('installation_projects')
+            .update({
+              'status': 'completed',
+              'completed_date': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', projectId);
+
+        // Get the project details to find the customer_id
+        final project = await _supabase
+            .from('installation_projects')
+            .select('customer_id')
+            .eq('id', projectId)
+            .single();
+
+        final customerId = project['customer_id'];
+
+        // Update customer's current_phase to documentation when project is completed
+        await _supabase
+            .from('customers')
+            .update({
+              'current_phase': 'documentation',
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', customerId);
+
+        print('Project $projectId completed - all work items verified');
+        print('Customer $customerId phase updated to documentation');
+      }
+    } catch (e) {
+      print('Error checking/updating project completion: $e');
+      // Don't throw here as this is a supplementary operation
     }
   }
 }

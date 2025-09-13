@@ -132,13 +132,18 @@ class _WorkItemDetailsDashboardState extends State<WorkItemDetailsDashboard>
             ),
             ElevatedButton(
               onPressed: () async {
-                Navigator.of(context).pop();
+                // Store context references before async operations
+                final navigator = Navigator.of(context);
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                final buildContext = context;
+
+                navigator.pop();
 
                 // Show loading indicator
                 showDialog(
-                  context: context,
+                  context: buildContext,
                   barrierDismissible: false,
-                  builder: (context) => const AlertDialog(
+                  builder: (dialogContext) => const AlertDialog(
                     content: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -156,20 +161,25 @@ class _WorkItemDetailsDashboardState extends State<WorkItemDetailsDashboard>
                   );
 
                   if (mounted) {
-                    Navigator.of(context).pop(); // Close loading dialog
+                    // Close loading dialog with safety check using stored navigator
+                    if (navigator.canPop()) {
+                      navigator.pop();
+                    }
 
                     if (success) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      scaffoldMessenger.showSnackBar(
                         const SnackBar(
                           content: Text('Work item verified successfully!'),
                           backgroundColor: Colors.green,
                         ),
                       );
 
-                      // Go back to previous screen
-                      Navigator.of(context).pop();
+                      // Go back to previous screen - with additional safety check
+                      if (mounted && navigator.canPop()) {
+                        navigator.pop();
+                      }
                     } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      scaffoldMessenger.showSnackBar(
                         const SnackBar(
                           content: Text('Failed to verify work item'),
                           backgroundColor: Colors.red,
@@ -179,8 +189,11 @@ class _WorkItemDetailsDashboardState extends State<WorkItemDetailsDashboard>
                   }
                 } catch (e) {
                   if (mounted) {
-                    Navigator.of(context).pop(); // Close loading dialog
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    // Close loading dialog with safety check using stored navigator
+                    if (navigator.canPop()) {
+                      navigator.pop();
+                    }
+                    scaffoldMessenger.showSnackBar(
                       SnackBar(
                         content: Text('Error: $e'),
                         backgroundColor: Colors.red,

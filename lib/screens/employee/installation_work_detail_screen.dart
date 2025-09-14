@@ -4,6 +4,7 @@ import '../../models/installation_work_model.dart';
 import '../../models/customer_model.dart';
 import '../../services/installation_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/location_service.dart';
 
 class InstallationWorkDetailScreen extends StatefulWidget {
   final InstallationWorkItem workItem;
@@ -24,6 +25,7 @@ class _InstallationWorkDetailScreenState
     extends State<InstallationWorkDetailScreen> {
   final InstallationService _installationService = InstallationService();
   final AuthService _authService = AuthService();
+  final LocationService _locationService = LocationService();
 
   late InstallationWorkItem _currentWorkItem;
   bool _isLoading = false;
@@ -399,19 +401,8 @@ class _InstallationWorkDetailScreenState
             ),
           ),
 
-        // Show pause/complete buttons if employee has active session
+        // Show complete button if employee has active session
         if (hasActiveSession) ...[
-          ElevatedButton.icon(
-            onPressed: _pauseWork,
-            icon: const Icon(Icons.pause),
-            label: const Text('Pause My Work'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-          ),
-          const SizedBox(height: 8),
           ElevatedButton.icon(
             onPressed: _completeWork,
             icon: const Icon(Icons.check_circle),
@@ -462,11 +453,22 @@ class _InstallationWorkDetailScreenState
     try {
       setState(() => _isLoading = true);
 
+      // Get employee's current GPS location
+      final currentLocation = await _locationService.getCurrentLocation();
+
+      if (currentLocation == null) {
+        throw Exception(
+          'Unable to get your current location. Please enable GPS and try again.',
+        );
+      }
+
       _currentSessionId = await _installationService.startWorkSession(
         workItemId: _currentWorkItem.id,
         employeeId: _currentEmployeeId!, // Use current employee's ID
-        latitude: _currentWorkItem.siteLatitude,
-        longitude: _currentWorkItem.siteLongitude,
+        latitude:
+            currentLocation.latitude, // ✅ FIXED - Employee's current location
+        longitude:
+            currentLocation.longitude, // ✅ FIXED - Employee's current location
       );
 
       await _installationService.updateWorkItemStatus(
@@ -490,32 +492,18 @@ class _InstallationWorkDetailScreenState
     }
   }
 
-  Future<void> _pauseWork() async {
-    try {
-      setState(() => _isLoading = true);
-
-      await _installationService.updateWorkItemStatus(
-        workItemId: _currentWorkItem.id,
-        status: 'awaitingCompletion',
-      );
-
-      setState(() {
-        _currentWorkItem = _currentWorkItem.copyWith(
-          status: WorkStatus.awaitingCompletion,
-        );
-        _isLoading = false;
-      });
-
-      _showMessage('Work paused');
-    } catch (e) {
-      setState(() => _isLoading = false);
-      _showErrorDialog('Failed to pause work: $e');
-    }
-  }
-
   Future<void> _completeWork() async {
     try {
       setState(() => _isLoading = true);
+
+      // Get employee's current GPS location for verification
+      final currentLocation = await _locationService.getCurrentLocation();
+
+      if (currentLocation == null) {
+        throw Exception(
+          'Unable to get your current location. Please enable GPS and try again.',
+        );
+      }
 
       await _installationService.updateWorkItemStatus(
         workItemId: _currentWorkItem.id,
@@ -526,8 +514,10 @@ class _InstallationWorkDetailScreenState
       if (_currentSessionId != null) {
         await _installationService.endWorkSession(
           sessionId: _currentSessionId!,
-          latitude: _currentWorkItem.siteLatitude,
-          longitude: _currentWorkItem.siteLongitude,
+          latitude:
+              currentLocation.latitude, // ✅ FIXED - Employee's current location
+          longitude: currentLocation
+              .longitude, // ✅ FIXED - Employee's current location
         );
       }
 
@@ -536,6 +526,7 @@ class _InstallationWorkDetailScreenState
           status: WorkStatus.completed,
           endTime: DateTime.now(),
         );
+        _currentSessionId = null; // ✅ FIXED - Clear session ID after completion
         _isLoading = false;
       });
 
@@ -550,11 +541,22 @@ class _InstallationWorkDetailScreenState
     try {
       setState(() => _isLoading = true);
 
+      // Get employee's current GPS location for verification
+      final currentLocation = await _locationService.getCurrentLocation();
+
+      if (currentLocation == null) {
+        throw Exception(
+          'Unable to get your current location. Please enable GPS and try again.',
+        );
+      }
+
       if (_currentSessionId != null) {
         await _installationService.endWorkSession(
           sessionId: _currentSessionId!,
-          latitude: _currentWorkItem.siteLatitude,
-          longitude: _currentWorkItem.siteLongitude,
+          latitude:
+              currentLocation.latitude, // ✅ FIXED - Employee's current location
+          longitude: currentLocation
+              .longitude, // ✅ FIXED - Employee's current location
         );
       }
 
@@ -567,6 +569,7 @@ class _InstallationWorkDetailScreenState
         _currentWorkItem = _currentWorkItem.copyWith(
           status: WorkStatus.awaitingCompletion,
         );
+        _currentSessionId = null; // ✅ FIXED - Clear session ID after stopping
         _isLoading = false;
       });
 

@@ -283,6 +283,49 @@ class InstallationService {
     }
   }
 
+  // Get customer location for location verification
+  Future<Map<String, double>> _getCustomerLocation(String workItemId) async {
+    try {
+      // Get project ID from work item
+      final workItem = await _supabase
+          .from('installation_work_items')
+          .select('project_id')
+          .eq('id', workItemId)
+          .single();
+
+      final projectId = workItem['project_id'];
+
+      // Get customer location from project
+      final project = await _supabase
+          .from('installation_projects')
+          .select('customer_id')
+          .eq('id', projectId)
+          .single();
+
+      final customerId = project['customer_id'];
+
+      // Get customer coordinates
+      final customer = await _supabase
+          .from('customers')
+          .select('latitude, longitude')
+          .eq('id', customerId)
+          .single();
+
+      final latitude = customer['latitude']?.toDouble();
+      final longitude = customer['longitude']?.toDouble();
+
+      if (latitude == null || longitude == null) {
+        throw Exception(
+          'Customer location not available. Please update customer address with coordinates.',
+        );
+      }
+
+      return {'latitude': latitude, 'longitude': longitude};
+    } catch (e) {
+      throw Exception('Failed to get customer location: $e');
+    }
+  }
+
   // Start work with location verification
   Future<WorkSession> startWork({
     required String workItemId,
@@ -292,24 +335,23 @@ class InstallationService {
     required double accuracy,
   }) async {
     try {
-      // Get work item to check site location
-      final workItem = await getWorkItem(workItemId);
-      if (workItem == null) {
-        throw Exception('Work item not found');
-      }
+      // Get customer location for verification
+      final customerLocation = await _getCustomerLocation(workItemId);
+      final customerLatitude = customerLocation['latitude']!;
+      final customerLongitude = customerLocation['longitude']!;
 
-      // Verify location
+      // Verify employee location against customer location
       final distance = _calculateDistance(
         currentLatitude,
         currentLongitude,
-        workItem.siteLatitude,
-        workItem.siteLongitude,
+        customerLatitude,
+        customerLongitude,
       );
 
       final isWithinSite = distance <= WORK_SITE_RADIUS;
       if (!isWithinSite) {
         throw Exception(
-          'You are ${distance.toInt()}m away from work site. Please move within 100m to start work.',
+          'You are ${distance.toInt()}m away from customer location. Please move within 100m to start work.',
         );
       }
 
@@ -375,6 +417,26 @@ class InstallationService {
     String? notes,
   }) async {
     try {
+      // Get customer location for verification
+      final customerLocation = await _getCustomerLocation(workItemId);
+      final customerLatitude = customerLocation['latitude']!;
+      final customerLongitude = customerLocation['longitude']!;
+
+      // Verify employee location against customer location
+      final distance = _calculateDistance(
+        currentLatitude,
+        currentLongitude,
+        customerLatitude,
+        customerLongitude,
+      );
+
+      final isWithinSite = distance <= WORK_SITE_RADIUS;
+      if (!isWithinSite) {
+        throw Exception(
+          'You are ${distance.toInt()}m away from customer location. Please move within 100m to end work.',
+        );
+      }
+
       // Get current session
       final sessions = await _getEmployeeSessions(workItemId, employeeId);
       final session = sessions.firstWhere((s) => s.id == sessionId);
@@ -385,8 +447,8 @@ class InstallationService {
         latitude: currentLatitude,
         longitude: currentLongitude,
         accuracy: accuracy,
-        isWithinSite: true, // Assume valid if ending work
-        distanceFromSite: 0.0,
+        isWithinSite: isWithinSite,
+        distanceFromSite: distance,
       );
 
       // Update session
@@ -410,6 +472,8 @@ class InstallationService {
         'details': {
           'session_id': sessionId,
           'duration_hours': updatedSession.duration.inMinutes / 60.0,
+          'end_location_verified': isWithinSite,
+          'distance_from_customer': distance,
         },
         'timestamp': DateTime.now().toIso8601String(),
       });
@@ -944,9 +1008,29 @@ class InstallationService {
     String? notes,
   }) async {
     try {
+      // Get customer location for verification
+      final customerLocation = await _getCustomerLocation(workItemId);
+      final customerLatitude = customerLocation['latitude']!;
+      final customerLongitude = customerLocation['longitude']!;
+
+      // Verify employee location against customer location
+      final distance = _calculateDistance(
+        latitude,
+        longitude,
+        customerLatitude,
+        customerLongitude,
+      );
+
+      final isWithinSite = distance <= WORK_SITE_RADIUS;
+      if (!isWithinSite) {
+        throw Exception(
+          'You are ${distance.toInt()}m away from customer location. Please move within 100m to start work.',
+        );
+      }
+
       final startTime = DateTime.now();
 
-      // Create the work session
+      // Create the work session with start work verification data
       final response = await _supabase
           .from('installation_work_sessions')
           .insert({
@@ -956,6 +1040,9 @@ class InstallationService {
             'start_latitude': latitude,
             'start_longitude': longitude,
             'session_notes': notes,
+            'location_verified':
+                isWithinSite, // Start work location verification
+            'distance_from_customer': distance, // Start work distance
           })
           .select('id')
           .single();
@@ -999,7 +1086,27 @@ class InstallationService {
 
       final workItemId = session['work_item_id'] as String;
 
-      // Update the work session
+      // Get customer location for verification
+      final customerLocation = await _getCustomerLocation(workItemId);
+      final customerLatitude = customerLocation['latitude']!;
+      final customerLongitude = customerLocation['longitude']!;
+
+      // Verify employee location against customer location
+      final distance = _calculateDistance(
+        latitude,
+        longitude,
+        customerLatitude,
+        customerLongitude,
+      );
+
+      final isWithinSite = distance <= WORK_SITE_RADIUS;
+      if (!isWithinSite) {
+        throw Exception(
+          'You are ${distance.toInt()}m away from customer location. Please move within 100m to end work.',
+        );
+      }
+
+      // Update the work session with end work verification data
       await _supabase
           .from('installation_work_sessions')
           .update({
@@ -1007,6 +1114,8 @@ class InstallationService {
             'end_latitude': latitude,
             'end_longitude': longitude,
             'session_notes': completionNotes,
+            'end_location_verified': isWithinSite,
+            'end_distance_from_customer': distance,
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', sessionId);

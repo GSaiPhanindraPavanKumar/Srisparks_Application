@@ -26,6 +26,7 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
   final CustomerService _customerService = CustomerService();
   final AuthService _authService = AuthService();
   final OfficeService _officeService = OfficeService();
+  final UserService _userService = UserService();
 
   late TabController _tabController;
 
@@ -35,6 +36,9 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
   List<CustomerModel> _amountPhase = [];
   List<CustomerModel> _materialPhase = [];
   List<CustomerModel> _installationPhase = [];
+  List<CustomerModel> _documentationPhase = [];
+  List<CustomerModel> _meterConnectionPhase = [];
+  List<CustomerModel> _inverterTurnonPhase = [];
   List<CustomerModel> _completedPhase = [];
 
   bool _isLoading = true;
@@ -44,7 +48,7 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 9, vsync: this);
     _loadData();
   }
 
@@ -138,14 +142,19 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
         .toList();
 
     _installationPhase = filteredCustomers
-        .where(
-          (c) => [
-            'installation',
-            'documentation',
-            'meter_connection',
-            'inverter_turnon',
-          ].contains(c.currentPhase),
-        )
+        .where((c) => c.currentPhase == 'installation')
+        .toList();
+
+    _documentationPhase = filteredCustomers
+        .where((c) => c.currentPhase == 'documentation')
+        .toList();
+
+    _meterConnectionPhase = filteredCustomers
+        .where((c) => c.currentPhase == 'meter_connection')
+        .toList();
+
+    _inverterTurnonPhase = filteredCustomers
+        .where((c) => c.currentPhase == 'inverter_turnon')
         .toList();
 
     _completedPhase = filteredCustomers
@@ -255,6 +264,14 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
                     Tab(text: 'Amount (${_amountPhase.length})'),
                     Tab(text: 'Material (${_materialPhase.length})'),
                     Tab(text: 'Installation (${_installationPhase.length})'),
+                    Tab(text: 'Documentation (${_documentationPhase.length})'),
+                    Tab(
+                      text:
+                          'Meter Connection (${_meterConnectionPhase.length})',
+                    ),
+                    Tab(
+                      text: 'Inverter Turnon (${_inverterTurnonPhase.length})',
+                    ),
                     Tab(text: 'Completed (${_completedPhase.length})'),
                   ],
                 ),
@@ -271,6 +288,9 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
           _buildCustomersList(_amountPhase),
           _buildCustomersList(_materialPhase),
           _buildCustomersList(_installationPhase),
+          _buildCustomersList(_documentationPhase),
+          _buildCustomersList(_meterConnectionPhase),
+          _buildCustomersList(_inverterTurnonPhase),
           _buildCustomersList(_completedPhase),
         ],
       ),
@@ -524,105 +544,117 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
               foregroundColor: Colors.white,
             ),
           ),
-        ] else if ([
-          'installation',
-          'documentation',
-          'meter_connection',
-          'inverter_turnon',
-        ].contains(customer.currentPhase)) ...[
-          if (customer.currentPhase == 'installation')
-            FutureBuilder<InstallationProject?>(
-              key: ValueKey(
-                'installation_${customer.id}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}',
-              ), // Refresh every second
-              future: InstallationService().getInstallationProject(customer.id),
-              builder: (context, snapshot) {
-                print(
-                  'FutureBuilder for ${customer.name}: state=${snapshot.connectionState}, hasData=${snapshot.hasData}, data=${snapshot.data}',
+        ] else if (customer.currentPhase == 'installation') ...[
+          FutureBuilder<InstallationProject?>(
+            key: ValueKey(
+              'installation_${customer.id}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}',
+            ), // Refresh every second
+            future: InstallationService().getInstallationProject(customer.id),
+            builder: (context, snapshot) {
+              print(
+                'FutureBuilder for ${customer.name}: state=${snapshot.connectionState}, hasData=${snapshot.hasData}, data=${snapshot.data}',
+              );
+
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Container(
+                  width: 120,
+                  height: 36,
+                  padding: const EdgeInsets.all(8),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
                 );
+              }
 
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Container(
-                    width: 120,
-                    height: 36,
-                    padding: const EdgeInsets.all(8),
-                    child: const Center(
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+              if (snapshot.hasError) {
+                print('Error loading installation project: ${snapshot.error}');
+                return ElevatedButton.icon(
+                  onPressed: () => _showAssignInstallationDialog(customer),
+                  icon: const Icon(Icons.assignment_add, size: 16),
+                  label: const Text('Assign Installation'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepOrange,
+                    foregroundColor: Colors.white,
+                  ),
+                );
+              }
+
+              final hasProject = snapshot.data != null;
+              print('Customer ${customer.name} hasProject: $hasProject');
+
+              if (!hasProject) {
+                // Customer doesn't have installation project - show assign button
+                return ElevatedButton.icon(
+                  onPressed: () => _showAssignInstallationDialog(customer),
+                  icon: const Icon(Icons.assignment_add, size: 16),
+                  label: const Text('Assign Installation'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepOrange,
+                    foregroundColor: Colors.white,
+                  ),
+                );
+              } else {
+                // Customer has installation project - show view and manage buttons
+                return Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => _openInstallationDashboard(customer),
+                      icon: const Icon(Icons.visibility, size: 16),
+                      label: const Text('View Installation'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
                       ),
                     ),
-                  );
-                }
-
-                if (snapshot.hasError) {
-                  print(
-                    'Error loading installation project: ${snapshot.error}',
-                  );
-                  return ElevatedButton.icon(
-                    onPressed: () => _showAssignInstallationDialog(customer),
-                    icon: const Icon(Icons.assignment_add, size: 16),
-                    label: const Text('Assign Installation'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepOrange,
-                      foregroundColor: Colors.white,
-                    ),
-                  );
-                }
-
-                final hasProject = snapshot.data != null;
-                print('Customer ${customer.name} hasProject: $hasProject');
-
-                if (!hasProject) {
-                  // Customer doesn't have installation project - show assign button
-                  return ElevatedButton.icon(
-                    onPressed: () => _showAssignInstallationDialog(customer),
-                    icon: const Icon(Icons.assignment_add, size: 16),
-                    label: const Text('Assign Installation'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepOrange,
-                      foregroundColor: Colors.white,
-                    ),
-                  );
-                } else {
-                  // Customer has installation project - show view and manage buttons
-                  return Row(
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: () => _openInstallationDashboard(customer),
-                        icon: const Icon(Icons.visibility, size: 16),
-                        label: const Text('View Installation'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                        ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: () => _openInstallationDashboard(customer),
+                      icon: const Icon(Icons.build, size: 16),
+                      label: const Text('Manage Team'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepOrange,
+                        foregroundColor: Colors.white,
                       ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        onPressed: () => _openInstallationDashboard(customer),
-                        icon: const Icon(Icons.build, size: 16),
-                        label: const Text('Manage Team'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.deepOrange,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  );
-                }
-              },
-            )
-          else
-            ElevatedButton.icon(
-              onPressed: () => _viewInstallationStatus(customer),
-              icon: const Icon(Icons.build, size: 16),
-              label: const Text('Installation'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepOrange,
-                foregroundColor: Colors.white,
-              ),
+                    ),
+                  ],
+                );
+              }
+            },
+          ),
+        ] else if (customer.currentPhase == 'documentation') ...[
+          ElevatedButton.icon(
+            onPressed: () => _submitDocumentation(customer),
+            icon: const Icon(Icons.description, size: 16),
+            label: const Text('Submit Documentation'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple,
+              foregroundColor: Colors.white,
             ),
+          ),
+        ] else if (customer.currentPhase == 'meter_connection') ...[
+          ElevatedButton.icon(
+            onPressed: () => _submitMeterConnection(customer),
+            icon: const Icon(Icons.electrical_services, size: 16),
+            label: const Text('Submit Meter Connection'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.indigo,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ] else if (customer.currentPhase == 'inverter_turnon') ...[
+          ElevatedButton.icon(
+            onPressed: () => _submitInverterTurnon(customer),
+            icon: const Icon(Icons.power, size: 16),
+            label: const Text('Submit Inverter Turnon'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+          ),
         ],
       ],
     );
@@ -1184,6 +1216,337 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
     _showMessage('Installation status view - to be implemented');
   }
 
+  void _submitDocumentation(CustomerModel customer) {
+    DateTime? documentationDate = DateTime.now();
+    String? assignedToEmployeeId;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Submit Documentation - ${customer.name}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Complete the documentation submission for this customer:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+
+                // Documentation Date
+                InkWell(
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: documentationDate ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now().add(const Duration(days: 30)),
+                    );
+                    if (date != null) {
+                      setState(() {
+                        documentationDate = date;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Documentation Date: ${documentationDate != null ? DateFormat('MMM dd, yyyy').format(documentationDate!) : 'Select Date'}',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Assigned To Employee
+                FutureBuilder<List<UserModel>>(
+                  future: _userService.getAllUsers(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const CircularProgressIndicator();
+                    }
+
+                    final employees = snapshot.data!
+                        .where(
+                          (user) =>
+                              user.role == UserRole.employee ||
+                              user.role == UserRole.lead,
+                        )
+                        .toList();
+
+                    return DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(
+                        labelText: 'Assigned To Employee',
+                        border: OutlineInputBorder(),
+                      ),
+                      value: assignedToEmployeeId,
+                      items: employees.map((employee) {
+                        return DropdownMenuItem<String>(
+                          value: employee.id,
+                          child: Text(employee.name),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          assignedToEmployeeId = value;
+                        });
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (documentationDate == null) {
+                  _showMessage('Please select documentation date');
+                  return;
+                }
+
+                try {
+                  await _customerService.updateCustomer(customer.id, {
+                    'current_phase': 'meter_connection',
+                    'documentation_submission_date': documentationDate!
+                        .toIso8601String(),
+                    'document_submitted_by': assignedToEmployeeId,
+                    'documentation_updated_by': _currentUser!.id,
+                    'documentation_updated_timestamp': DateTime.now()
+                        .toIso8601String(),
+                  });
+
+                  Navigator.pop(context);
+                  _loadData();
+                  _showMessage('Documentation submitted successfully!');
+                } catch (e) {
+                  _showMessage('Error submitting documentation: $e');
+                }
+              },
+              child: const Text('Submit Documentation'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _submitMeterConnection(CustomerModel customer) {
+    DateTime? meterConnectionDate = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Submit Meter Connection'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Customer: ${customer.name}'),
+                const SizedBox(height: 16),
+
+                // Meter Connection Date
+                Text(
+                  'Date of Meter Connection:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () async {
+                    final pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: meterConnectionDate ?? DateTime.now(),
+                      firstDate: DateTime.now().subtract(Duration(days: 365)),
+                      lastDate: DateTime.now().add(Duration(days: 30)),
+                    );
+                    if (pickedDate != null) {
+                      setState(() {
+                        meterConnectionDate = pickedDate;
+                      });
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          meterConnectionDate != null
+                              ? DateFormat(
+                                  'MMM dd, yyyy',
+                                ).format(meterConnectionDate!)
+                              : 'Select Date',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (meterConnectionDate == null) {
+                  _showMessage('Please select meter connection date');
+                  return;
+                }
+
+                Navigator.pop(context, {'meterDate': meterConnectionDate});
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    ).then((result) async {
+      if (result != null) {
+        try {
+          await _customerService.updateCustomer(customer.id, {
+            'current_phase': 'inverter_turnon',
+            'date_of_meter': (result['meterDate'] as DateTime)
+                .toIso8601String(),
+            'meter_updated_by': _currentUser!.id,
+            'meter_updated_time': DateTime.now().toIso8601String(),
+          });
+
+          _showMessage('Meter connection submitted successfully!');
+          _loadData();
+        } catch (e) {
+          _showMessage('Error submitting meter connection: $e');
+        }
+      }
+    });
+  }
+
+  void _submitInverterTurnon(CustomerModel customer) {
+    DateTime? inverterTurnonDate = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Submit Inverter Turnon'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Customer: ${customer.name}'),
+                const SizedBox(height: 16),
+
+                // Date picker
+                Text(
+                  'Date of Inverter Turnon:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () async {
+                    final pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: inverterTurnonDate ?? DateTime.now(),
+                      firstDate: DateTime.now().subtract(Duration(days: 365)),
+                      lastDate: DateTime.now().add(Duration(days: 30)),
+                    );
+                    if (pickedDate != null) {
+                      setState(() {
+                        inverterTurnonDate = pickedDate;
+                      });
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          inverterTurnonDate != null
+                              ? DateFormat(
+                                  'MMM dd, yyyy',
+                                ).format(inverterTurnonDate!)
+                              : 'Select Date',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (inverterTurnonDate == null) {
+                  _showMessage('Please select inverter turnon date');
+                  return;
+                }
+
+                Navigator.pop(context, {'inverterDate': inverterTurnonDate});
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    ).then((result) async {
+      if (result != null) {
+        try {
+          await _customerService.updateCustomer(customer.id, {
+            'current_phase': 'completed',
+            'date_of_inverter': (result['inverterDate'] as DateTime)
+                .toIso8601String(),
+            'inverter_updated_by': _currentUser!.id,
+            'inverter_updated_time': DateTime.now().toIso8601String(),
+          });
+
+          _showMessage('Inverter turnon submitted successfully!');
+          _loadData();
+        } catch (e) {
+          _showMessage('Error submitting inverter turnon: $e');
+        }
+      }
+    });
+  }
+
   Color _getPhaseColor(String phase) {
     switch (phase.toLowerCase()) {
       case 'application':
@@ -1203,10 +1566,13 @@ class _LeadUnifiedDashboardState extends State<LeadUnifiedDashboard>
       case 'material_delivery':
         return Colors.brown;
       case 'installation':
-      case 'documentation':
-      case 'meter_connection':
-      case 'inverter_turnon':
         return Colors.deepOrange;
+      case 'documentation':
+        return Colors.purple;
+      case 'meter_connection':
+        return Colors.indigo;
+      case 'inverter_turnon':
+        return Colors.green;
       case 'completed':
       case 'service_phase':
         return Colors.green;

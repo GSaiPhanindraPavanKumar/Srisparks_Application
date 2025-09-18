@@ -36,6 +36,9 @@ class _DirectorUnifiedDashboardState extends State<DirectorUnifiedDashboard>
   List<CustomerModel> _amountPhase = [];
   List<CustomerModel> _materialPhase = [];
   List<CustomerModel> _installationPhase = [];
+  List<CustomerModel> _documentationPhase = [];
+  List<CustomerModel> _meterConnectionPhase = [];
+  List<CustomerModel> _inverterTurnonPhase = [];
   List<CustomerModel> _completedPhase = [];
 
   // Office filter for director
@@ -49,7 +52,7 @@ class _DirectorUnifiedDashboardState extends State<DirectorUnifiedDashboard>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 9, vsync: this);
     _loadData();
   }
 
@@ -120,6 +123,15 @@ class _DirectorUnifiedDashboardState extends State<DirectorUnifiedDashboard>
     _installationPhase = filtered
         .where((c) => c.currentPhase == 'installation')
         .toList();
+    _documentationPhase = filtered
+        .where((c) => c.currentPhase == 'documentation')
+        .toList();
+    _meterConnectionPhase = filtered
+        .where((c) => c.currentPhase == 'meter_connection')
+        .toList();
+    _inverterTurnonPhase = filtered
+        .where((c) => c.currentPhase == 'inverter_turnon')
+        .toList();
     _completedPhase = filtered
         .where((c) => c.currentPhase == 'completed')
         .toList();
@@ -129,6 +141,9 @@ class _DirectorUnifiedDashboardState extends State<DirectorUnifiedDashboard>
     print('  Amount: ${_amountPhase.length}');
     print('  Material: ${_materialPhase.length}');
     print('  Installation: ${_installationPhase.length}');
+    print('  Documentation: ${_documentationPhase.length}');
+    print('  Meter Connection: ${_meterConnectionPhase.length}');
+    print('  Inverter Turnon: ${_inverterTurnonPhase.length}');
     print('  Completed: ${_completedPhase.length}');
 
     // Debug: Print current phases of all customers
@@ -242,6 +257,11 @@ class _DirectorUnifiedDashboardState extends State<DirectorUnifiedDashboard>
                   Tab(text: 'Amount (${_amountPhase.length})'),
                   Tab(text: 'Material (${_materialPhase.length})'),
                   Tab(text: 'Installation (${_installationPhase.length})'),
+                  Tab(text: 'Documentation (${_documentationPhase.length})'),
+                  Tab(
+                    text: 'Meter Connection (${_meterConnectionPhase.length})',
+                  ),
+                  Tab(text: 'Inverter Turnon (${_inverterTurnonPhase.length})'),
                   Tab(text: 'Completed (${_completedPhase.length})'),
                 ],
               ),
@@ -260,6 +280,9 @@ class _DirectorUnifiedDashboardState extends State<DirectorUnifiedDashboard>
                 _buildCustomerList(_amountPhase),
                 _buildCustomerList(_materialPhase),
                 _buildCustomerList(_installationPhase),
+                _buildCustomerList(_documentationPhase),
+                _buildCustomerList(_meterConnectionPhase),
+                _buildCustomerList(_inverterTurnonPhase),
                 _buildCustomerList(_completedPhase),
               ],
             ),
@@ -1162,6 +1185,54 @@ class _DirectorUnifiedDashboardState extends State<DirectorUnifiedDashboard>
       buttons.add(const SizedBox(width: 8));
     }
 
+    // Documentation phase actions
+    if (customer.currentPhase == 'documentation') {
+      buttons.addAll([
+        ElevatedButton.icon(
+          onPressed: () => _submitDocumentation(customer),
+          icon: const Icon(Icons.description, size: 16),
+          label: const Text('Submit Documentation'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.teal,
+            foregroundColor: Colors.white,
+          ),
+        ),
+        const SizedBox(width: 8),
+      ]);
+    }
+
+    // Meter Connection phase actions
+    if (customer.currentPhase == 'meter_connection') {
+      buttons.addAll([
+        ElevatedButton.icon(
+          onPressed: () => _submitMeterConnection(customer),
+          icon: const Icon(Icons.electrical_services, size: 16),
+          label: const Text('Submit Meter Connection'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.indigo,
+            foregroundColor: Colors.white,
+          ),
+        ),
+        const SizedBox(width: 8),
+      ]);
+    }
+
+    // Inverter Turnon phase actions
+    if (customer.currentPhase == 'inverter_turnon') {
+      buttons.addAll([
+        ElevatedButton.icon(
+          onPressed: () => _submitInverterTurnon(customer),
+          icon: const Icon(Icons.power, size: 16),
+          label: const Text('Submit Inverter Turnon'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.deepOrange,
+            foregroundColor: Colors.white,
+          ),
+        ),
+        const SizedBox(width: 8),
+      ]);
+    }
+
     // Universal View Details button for all customers
     buttons.addAll([
       const SizedBox(width: 8),
@@ -1189,6 +1260,12 @@ class _DirectorUnifiedDashboardState extends State<DirectorUnifiedDashboard>
         return Colors.orange;
       case 'installation':
         return Colors.purple;
+      case 'documentation':
+        return Colors.teal;
+      case 'meter_connection':
+        return Colors.indigo;
+      case 'inverter_turnon':
+        return Colors.deepOrange;
       case 'completed':
         return Colors.grey;
       default:
@@ -1773,6 +1850,444 @@ class _DirectorUnifiedDashboardState extends State<DirectorUnifiedDashboard>
         _loadCustomers();
       } catch (e) {
         _showMessage('Error moving to material phase: $e');
+      }
+    }
+  }
+
+  Future<void> _submitDocumentation(CustomerModel customer) async {
+    DateTime? submissionDate = DateTime.now();
+    String? selectedEmployeeId;
+    List<UserModel> officeEmployees = [];
+
+    // Load employees for the current office
+    try {
+      if (_selectedOfficeId != null) {
+        officeEmployees = await UserService().getUsersByOffice(
+          _selectedOfficeId!,
+        );
+      } else {
+        // If no office filter, load employees from customer's office
+        officeEmployees = await UserService().getUsersByOffice(
+          customer.officeId,
+        );
+      }
+
+      // Filter to show only active employees
+      officeEmployees = officeEmployees.where((user) => user.isActive).toList();
+    } catch (e) {
+      _showMessage('Error loading employees: $e');
+      return;
+    }
+
+    if (officeEmployees.isEmpty) {
+      _showMessage('No employees found for this office');
+      return;
+    }
+
+    // Show dialog with date picker and employee dropdown
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Submit Documentation'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Customer: ${customer.name}'),
+                const SizedBox(height: 16),
+
+                // Date picker
+                Text(
+                  'Submission Date:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () async {
+                    final pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: submissionDate ?? DateTime.now(),
+                      firstDate: DateTime.now().subtract(Duration(days: 365)),
+                      lastDate: DateTime.now().add(Duration(days: 30)),
+                    );
+                    if (pickedDate != null) {
+                      setState(() {
+                        submissionDate = pickedDate;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.calendar_today, size: 16),
+                        SizedBox(width: 8),
+                        Text(
+                          submissionDate != null
+                              ? DateFormat('dd/MM/yyyy').format(submissionDate!)
+                              : 'Select Date',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Employee dropdown
+                Text(
+                  'Submitted By:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: selectedEmployeeId,
+                  decoration: InputDecoration(
+                    hintText: 'Select Employee',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: officeEmployees.map((employee) {
+                    return DropdownMenuItem<String>(
+                      value: employee.id,
+                      child: Text('${employee.name} (${employee.role})'),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      selectedEmployeeId = value;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please select an employee';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    border: Border.all(color: Colors.blue.shade200),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'This will:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text('• Record the submission date as selected'),
+                      Text('• Record the selected employee as submitter'),
+                      Text('• Move the customer to meter connection phase'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (submissionDate != null && selectedEmployeeId != null) {
+                  Navigator.pop(context, {
+                    'submissionDate': submissionDate,
+                    'selectedEmployeeId': selectedEmployeeId,
+                  });
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Please select both date and employee'),
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Submit Documentation'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result != null) {
+      try {
+        await _customerService.updateCustomer(customer.id, {
+          'documentation_submission_date':
+              (result['submissionDate'] as DateTime).toIso8601String(),
+          'document_submitted_by': result['selectedEmployeeId'],
+          'documentation_updated_by': _currentUser?.id,
+          'documentation_updated_timestamp': DateTime.now().toIso8601String(),
+          'current_phase': 'meter_connection',
+        });
+        _showMessage('Documentation submitted successfully!');
+        _loadCustomers();
+      } catch (e) {
+        _showMessage('Error submitting documentation: $e');
+      }
+    }
+  }
+
+  Future<void> _submitMeterConnection(CustomerModel customer) async {
+    DateTime? meterDate = DateTime.now();
+
+    // Show dialog with date picker only (no employee dropdown needed)
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Submit Meter Connection'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Customer: ${customer.name}'),
+                const SizedBox(height: 16),
+
+                // Date picker
+                Text(
+                  'Date of Meter Connection:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () async {
+                    final pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: meterDate ?? DateTime.now(),
+                      firstDate: DateTime.now().subtract(Duration(days: 365)),
+                      lastDate: DateTime.now().add(Duration(days: 30)),
+                    );
+                    if (pickedDate != null) {
+                      setState(() {
+                        meterDate = pickedDate;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.calendar_today, size: 16),
+                        SizedBox(width: 8),
+                        Text(
+                          meterDate != null
+                              ? DateFormat('dd/MM/yyyy').format(meterDate!)
+                              : 'Select Date',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.shade50,
+                    border: Border.all(color: Colors.indigo.shade200),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'This will:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text('• Record the meter connection date as selected'),
+                      Text('• Move the customer to inverter turnon phase'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (meterDate != null) {
+                  Navigator.pop(context, {'meterDate': meterDate});
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Please select the meter connection date'),
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.indigo,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Submit Meter Connection'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result != null) {
+      try {
+        await _customerService.updateCustomer(customer.id, {
+          'date_of_meter': (result['meterDate'] as DateTime).toIso8601String(),
+          'meter_updated_by': _currentUser?.id,
+          'meter_updated_time': DateTime.now().toIso8601String(),
+          'current_phase': 'inverter_turnon',
+        });
+        _showMessage('Meter connection submitted successfully!');
+        _loadCustomers();
+      } catch (e) {
+        _showMessage('Error submitting meter connection: $e');
+      }
+    }
+  }
+
+  Future<void> _submitInverterTurnon(CustomerModel customer) async {
+    DateTime? inverterDate = DateTime.now();
+
+    // Show dialog with date picker only (similar to meter connection)
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Submit Inverter Turnon'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Customer: ${customer.name}'),
+                const SizedBox(height: 16),
+
+                // Date picker
+                Text(
+                  'Date of Inverter Turnon:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () async {
+                    final pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: inverterDate ?? DateTime.now(),
+                      firstDate: DateTime.now().subtract(Duration(days: 365)),
+                      lastDate: DateTime.now().add(Duration(days: 30)),
+                    );
+                    if (pickedDate != null) {
+                      setState(() {
+                        inverterDate = pickedDate;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.calendar_today, size: 16),
+                        SizedBox(width: 8),
+                        Text(
+                          inverterDate != null
+                              ? DateFormat('dd/MM/yyyy').format(inverterDate!)
+                              : 'Select Date',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.deepOrange.shade50,
+                    border: Border.all(color: Colors.deepOrange.shade200),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'This will:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text('• Record the inverter turnon date as selected'),
+                      Text('• Move the customer to completed phase'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (inverterDate != null) {
+                  Navigator.pop(context, {'inverterDate': inverterDate});
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Please select the inverter turnon date'),
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepOrange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Submit Inverter Turnon'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result != null) {
+      try {
+        await _customerService.updateCustomer(customer.id, {
+          'date_of_inverter': (result['inverterDate'] as DateTime)
+              .toIso8601String(),
+          'inverter_updated_by': _currentUser?.id,
+          'inverter_updated_time': DateTime.now().toIso8601String(),
+          'current_phase': 'completed',
+        });
+        _showMessage('Inverter turnon submitted successfully!');
+        _loadCustomers();
+      } catch (e) {
+        _showMessage('Error submitting inverter turnon: $e');
       }
     }
   }

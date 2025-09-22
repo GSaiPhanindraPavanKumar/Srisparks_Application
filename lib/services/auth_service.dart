@@ -354,7 +354,7 @@ class AuthService {
 
   // Check if user needs approval
   bool needsApproval(UserStatus status) {
-    return status == UserStatus.pending_approval;
+    return status == UserStatus.inactive;
   }
 
   // Private method to log activities

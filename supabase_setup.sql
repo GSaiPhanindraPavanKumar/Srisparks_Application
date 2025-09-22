@@ -18,17 +18,24 @@ CREATE TABLE IF NOT EXISTS offices (
   metadata JSONB
 );
 
--- 2. Create Users Table (Updated with isLead boolean)
+-- 2. Create Users Table (Updated with approval workflow)
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE NOT NULL,
   full_name TEXT,
   phone_number TEXT,
   role TEXT NOT NULL CHECK (role IN ('director', 'manager', 'employee')),
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'pending_approval')),
+  status TEXT NOT NULL DEFAULT 'inactive' CHECK (status IN ('active', 'inactive')),
   is_lead BOOLEAN DEFAULT FALSE,
   office_id UUID REFERENCES offices(id),
-  reporting_to_id UUID REFERENCES users(id),
+  
+  -- Approval workflow columns
+  added_by UUID REFERENCES users(id),
+  added_time TIMESTAMPTZ DEFAULT NOW(),
+  approved_by UUID REFERENCES users(id),
+  approved_time TIMESTAMPTZ,
+  approval_status TEXT DEFAULT 'pending' CHECK (approval_status IN ('pending', 'approved', 'rejected')),
+  
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   metadata JSONB
@@ -125,9 +132,13 @@ CREATE TRIGGER update_work_updated_at
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_office_id ON users(office_id);
-CREATE INDEX IF NOT EXISTS idx_users_reporting_to_id ON users(reporting_to_id);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
 CREATE INDEX IF NOT EXISTS idx_users_is_lead ON users(is_lead);
+CREATE INDEX IF NOT EXISTS idx_users_added_by ON users(added_by);
+CREATE INDEX IF NOT EXISTS idx_users_approved_by ON users(approved_by);
+CREATE INDEX IF NOT EXISTS idx_users_approval_status ON users(approval_status);
+CREATE INDEX IF NOT EXISTS idx_users_added_time ON users(added_time);
+CREATE INDEX IF NOT EXISTS idx_users_approved_time ON users(approved_time);
 
 -- Work table indexes
 CREATE INDEX IF NOT EXISTS idx_work_assigned_to_id ON work(assigned_to_id);

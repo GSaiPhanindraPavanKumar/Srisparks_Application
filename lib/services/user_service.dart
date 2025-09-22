@@ -104,21 +104,65 @@ class UserService {
     final response = await _supabase
         .from('users')
         .select()
-        .eq('status', UserStatus.pending_approval.name)
-        .order('created_at', ascending: false);
+        .eq('approval_status', 'pending')
+        .order('added_time', ascending: false);
 
     return (response as List).map((user) => UserModel.fromJson(user)).toList();
   }
 
-  // Get subordinates (users reporting to current user)
-  Future<List<UserModel>> getSubordinates(String userId) async {
-    final response = await _supabase
-        .from('users')
-        .select()
-        .eq('reporting_to_id', userId)
-        .order('created_at', ascending: false);
+  // Get team members for a user (based on office and role hierarchy)
+  Future<List<UserModel>> getTeamMembers(String userId) async {
+    final currentUser = await getUserById(userId);
+    if (currentUser == null) return [];
 
-    return (response as List).map((user) => UserModel.fromJson(user)).toList();
+    List<UserModel> teamMembers = [];
+
+    if (currentUser.role == UserRole.director) {
+      // Directors can see all active, approved users
+      final response = await _supabase
+          .from('users')
+          .select()
+          .eq('status', 'active')
+          .eq('approval_status', 'approved')
+          .neq('id', userId)
+          .order('full_name', ascending: true);
+      teamMembers = (response as List)
+          .map((user) => UserModel.fromJson(user))
+          .toList();
+    } else if (currentUser.role == UserRole.manager) {
+      // Managers can see active, approved users in their office
+      if (currentUser.officeId != null) {
+        final officeUsers = await _supabase
+            .from('users')
+            .select()
+            .eq('office_id', currentUser.officeId!)
+            .eq('status', 'active')
+            .eq('approval_status', 'approved')
+            .neq('id', userId)
+            .order('full_name', ascending: true);
+        teamMembers = (officeUsers as List)
+            .map((user) => UserModel.fromJson(user))
+            .toList();
+      }
+    } else if (currentUser.isLead) {
+      // Employee-leads can see active, approved employees in their office
+      if (currentUser.officeId != null) {
+        final officeUsers = await _supabase
+            .from('users')
+            .select()
+            .eq('office_id', currentUser.officeId!)
+            .eq('role', 'employee')
+            .eq('status', 'active')
+            .eq('approval_status', 'approved')
+            .neq('id', userId)
+            .order('full_name', ascending: true);
+        teamMembers = (officeUsers as List)
+            .map((user) => UserModel.fromJson(user))
+            .toList();
+      }
+    }
+
+    return teamMembers;
   }
 
   // Create new user (via Edge Function for security)
@@ -129,25 +173,34 @@ class UserService {
     required UserRole role,
     String? phoneNumber,
     String? officeId,
-    String? reportingToId,
+    bool isLead = false,
   }) async {
+    // Always send 'employee' as role for leads, not 'lead'
+    String serverRole = role.name;
+    if (role == UserRole.employee && isLead) {
+      serverRole = 'employee'; // Send 'employee' for employee leads
+    }
+
     final response = await _supabase.functions.invoke(
       'create-user',
       body: {
         'email': email,
         'password': password,
         'full_name': fullName,
-        'role': role.name,
+        'role':
+            serverRole, // This will always be director, manager, or employee
         'phone_number': phoneNumber,
         'office_id': officeId,
-        'reporting_to_id': reportingToId,
+        'is_lead': isLead, // This flag indicates leadership for employees
       },
     );
 
     if (response.status != 200) {
+      print('Create user error: ${response.data}');
       throw Exception('Failed to create user: ${response.data}');
     }
 
+    print('User created successfully: ${response.data}');
     return UserModel.fromJson(response.data);
   }
 
@@ -177,45 +230,54 @@ class UserService {
 
   // Approve user
   Future<UserModel> approveUser(String userId) async {
-    final response = await _supabase
-        .from('users')
-        .update({'status': UserStatus.active.name})
-        .eq('id', userId)
-        .select()
-        .single();
+    try {
+      await _supabase.rpc(
+        'approve_reject_user',
+        params: {
+          'user_id': userId,
+          'director_id': _supabase.auth.currentUser!.id,
+          'action': 'approve',
+          'comments': null,
+        },
+      );
 
-    // Log the activity
-    await _logActivity(
-      activityType: ActivityType.user_approved,
-      description: 'User approved',
-      entityId: userId,
-      entityType: 'user',
-    );
+      // Fetch the updated user
+      final updatedUser = await getUserById(userId);
+      if (updatedUser == null) {
+        throw Exception('User not found after approval');
+      }
 
-    return UserModel.fromJson(response);
+      return updatedUser;
+    } catch (e) {
+      print('Error approving user: $e');
+      throw Exception('Failed to approve user: $e');
+    }
   }
 
   // Reject user
   Future<UserModel> rejectUser(String userId, String reason) async {
-    final response = await _supabase
-        .from('users')
-        .update({
-          'status': UserStatus.inactive.name,
-          'metadata': {'rejection_reason': reason},
-        })
-        .eq('id', userId)
-        .select()
-        .single();
+    try {
+      await _supabase.rpc(
+        'approve_reject_user',
+        params: {
+          'user_id': userId,
+          'director_id': _supabase.auth.currentUser!.id,
+          'action': 'reject',
+          'comments': reason,
+        },
+      );
 
-    // Log the activity
-    await _logActivity(
-      activityType: ActivityType.user_rejected,
-      description: 'User rejected: $reason',
-      entityId: userId,
-      entityType: 'user',
-    );
+      // Fetch the updated user
+      final updatedUser = await getUserById(userId);
+      if (updatedUser == null) {
+        throw Exception('User not found after rejection');
+      }
 
-    return UserModel.fromJson(response);
+      return updatedUser;
+    } catch (e) {
+      print('Error rejecting user: $e');
+      throw Exception('Failed to reject user: $e');
+    }
   }
 
   // Deactivate user
@@ -245,84 +307,10 @@ class UserService {
     final response = await _supabase
         .from('users')
         .select()
-        .eq('status', 'pending_approval')
-        .order('created_at', ascending: false);
+        .eq('approval_status', 'pending')
+        .order('added_time', ascending: false);
 
     return (response as List).map((user) => UserModel.fromJson(user)).toList();
-  }
-
-  // Get team members for a user
-  Future<List<UserModel>> getTeamMembers(String userId) async {
-    // Get current user to determine their role and office
-    final currentUser = await getCurrentUserProfile();
-    if (currentUser == null) return [];
-
-    List<UserModel> teamMembers = [];
-
-    if (currentUser.role == UserRole.director) {
-      // Directors can see all users
-      final response = await _supabase
-          .from('users')
-          .select()
-          .eq('status', 'active')
-          .neq('id', userId)
-          .order('full_name', ascending: true);
-
-      teamMembers = (response as List)
-          .map((user) => UserModel.fromJson(user))
-          .toList();
-    } else if (currentUser.role == UserRole.manager) {
-      // Managers can see users from their office
-      if (currentUser.officeId != null) {
-        final response = await _supabase
-            .from('users')
-            .select()
-            .eq('office_id', currentUser.officeId!)
-            .eq('status', 'active')
-            .neq('id', userId)
-            .order('full_name', ascending: true);
-
-        teamMembers = (response as List)
-            .map((user) => UserModel.fromJson(user))
-            .toList();
-      } else {
-        // Safety: Manager without office assignment - show empty list
-        teamMembers = [];
-      }
-    } else if (currentUser.role == UserRole.employee && currentUser.isLead) {
-      // For leads: show employees from the same office
-      if (currentUser.officeId != null) {
-        final response = await _supabase
-            .from('users')
-            .select()
-            .eq('office_id', currentUser.officeId!)
-            .eq('role', 'employee')
-            .eq('status', 'active')
-            .neq('id', userId) // Exclude current user
-            .order('full_name', ascending: true);
-
-        teamMembers = (response as List)
-            .map((user) => UserModel.fromJson(user))
-            .toList();
-      } else {
-        // Safety: Employee lead without office assignment - show empty list
-        teamMembers = [];
-      }
-    } else {
-      // For other users: show direct reports
-      final response = await _supabase
-          .from('users')
-          .select()
-          .eq('reporting_to_id', userId)
-          .eq('status', 'active')
-          .order('full_name', ascending: true);
-
-      teamMembers = (response as List)
-          .map((user) => UserModel.fromJson(user))
-          .toList();
-    }
-
-    return teamMembers;
   }
 
   // Get assignable users based on role hierarchy (for work assignment)
@@ -396,10 +384,10 @@ class UserService {
       }
     }
 
-    // Leads can manage employees in their office who report to them
+    // Leads can manage employees in their office
     if (currentUser.isLead) {
       return targetUser.role == UserRole.employee &&
-          targetUser.reportingToId == currentUser.id;
+          targetUser.officeId == currentUser.officeId;
     }
 
     return false;

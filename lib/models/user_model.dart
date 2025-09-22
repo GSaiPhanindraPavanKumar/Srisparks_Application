@@ -28,7 +28,7 @@ extension UserRoleExtension on UserRole {
   }
 }
 
-enum UserStatus { active, inactive, pending_approval }
+enum UserStatus { active, inactive }
 
 extension UserStatusExtension on UserStatus {
   String get name {
@@ -37,8 +37,6 @@ extension UserStatusExtension on UserStatus {
         return 'active';
       case UserStatus.inactive:
         return 'inactive';
-      case UserStatus.pending_approval:
-        return 'pending_approval';
     }
   }
 
@@ -48,8 +46,32 @@ extension UserStatusExtension on UserStatus {
         return 'Active';
       case UserStatus.inactive:
         return 'Inactive';
-      case UserStatus.pending_approval:
-        return 'Pending Approval';
+    }
+  }
+}
+
+enum ApprovalStatus { pending, approved, rejected }
+
+extension ApprovalStatusExtension on ApprovalStatus {
+  String get name {
+    switch (this) {
+      case ApprovalStatus.pending:
+        return 'pending';
+      case ApprovalStatus.approved:
+        return 'approved';
+      case ApprovalStatus.rejected:
+        return 'rejected';
+    }
+  }
+
+  String get displayName {
+    switch (this) {
+      case ApprovalStatus.pending:
+        return 'Pending';
+      case ApprovalStatus.approved:
+        return 'Approved';
+      case ApprovalStatus.rejected:
+        return 'Rejected';
     }
   }
 }
@@ -63,7 +85,14 @@ class UserModel {
   final UserStatus status;
   final bool isLead;
   final String? officeId;
-  final String? reportingToId;
+
+  // Approval workflow fields
+  final String? addedBy;
+  final DateTime? addedTime;
+  final String? approvedBy;
+  final DateTime? approvedTime;
+  final ApprovalStatus approvalStatus;
+
   final DateTime createdAt;
   final DateTime updatedAt;
   final Map<String, dynamic>? metadata;
@@ -77,7 +106,11 @@ class UserModel {
     required this.status,
     this.isLead = false,
     this.officeId,
-    this.reportingToId,
+    this.addedBy,
+    this.addedTime,
+    this.approvedBy,
+    this.approvedTime,
+    this.approvalStatus = ApprovalStatus.pending,
     required this.createdAt,
     required this.updatedAt,
     this.metadata,
@@ -88,9 +121,14 @@ class UserModel {
   String get displayName => fullName ?? email;
   String get roleDisplayName => isLead ? 'Lead' : role.displayName;
   String get statusDisplayName => status.displayName;
+  String get approvalStatusDisplayName => approvalStatus.displayName;
   bool get isActive => status == UserStatus.active;
-  bool get isPending => status == UserStatus.pending_approval;
+  bool get isPending => approvalStatus == ApprovalStatus.pending;
+  bool get isApproved => approvalStatus == ApprovalStatus.approved;
+  bool get isRejected => approvalStatus == ApprovalStatus.rejected;
   bool get isInactive => status == UserStatus.inactive;
+  bool get canLogin =>
+      status == UserStatus.active && approvalStatus == ApprovalStatus.approved;
 
   // JSON serialization
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -105,11 +143,22 @@ class UserModel {
       ),
       status: UserStatus.values.firstWhere(
         (s) => s.name == json['status'],
-        orElse: () => UserStatus.pending_approval,
+        orElse: () => UserStatus.inactive,
       ),
       isLead: json['is_lead'] ?? false,
       officeId: json['office_id'],
-      reportingToId: json['reporting_to_id'],
+      addedBy: json['added_by'],
+      addedTime: json['added_time'] != null
+          ? DateTime.parse(json['added_time'])
+          : null,
+      approvedBy: json['approved_by'],
+      approvedTime: json['approved_time'] != null
+          ? DateTime.parse(json['approved_time'])
+          : null,
+      approvalStatus: ApprovalStatus.values.firstWhere(
+        (a) => a.name == json['approval_status'],
+        orElse: () => ApprovalStatus.pending,
+      ),
       createdAt: DateTime.parse(
         json['created_at'] ?? DateTime.now().toIso8601String(),
       ),
@@ -130,7 +179,11 @@ class UserModel {
       'status': status.name,
       'is_lead': isLead,
       'office_id': officeId,
-      'reporting_to_id': reportingToId,
+      'added_by': addedBy,
+      'added_time': addedTime?.toIso8601String(),
+      'approved_by': approvedBy,
+      'approved_time': approvedTime?.toIso8601String(),
+      'approval_status': approvalStatus.name,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'metadata': metadata,
@@ -147,7 +200,11 @@ class UserModel {
     UserStatus? status,
     bool? isLead,
     String? officeId,
-    String? reportingToId,
+    String? addedBy,
+    DateTime? addedTime,
+    String? approvedBy,
+    DateTime? approvedTime,
+    ApprovalStatus? approvalStatus,
     DateTime? createdAt,
     DateTime? updatedAt,
     Map<String, dynamic>? metadata,
@@ -161,7 +218,11 @@ class UserModel {
       status: status ?? this.status,
       isLead: isLead ?? this.isLead,
       officeId: officeId ?? this.officeId,
-      reportingToId: reportingToId ?? this.reportingToId,
+      addedBy: addedBy ?? this.addedBy,
+      addedTime: addedTime ?? this.addedTime,
+      approvedBy: approvedBy ?? this.approvedBy,
+      approvedTime: approvedTime ?? this.approvedTime,
+      approvalStatus: approvalStatus ?? this.approvalStatus,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       metadata: metadata ?? this.metadata,
@@ -170,7 +231,7 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(id: $id, email: $email, fullName: $fullName, role: ${role.displayName}, status: ${status.displayName}, isLead: $isLead)';
+    return 'UserModel(id: $id, email: $email, fullName: $fullName, role: ${role.displayName}, status: ${status.displayName}, approvalStatus: ${approvalStatus.displayName}, isLead: $isLead)';
   }
 
   @override

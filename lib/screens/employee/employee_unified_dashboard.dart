@@ -216,11 +216,21 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
               children: [
                 Icon(Icons.phone, size: 16, color: Colors.grey[600]),
                 const SizedBox(width: 4),
-                Text(customer.phoneNumber ?? 'No phone'),
+                Flexible(
+                  child: Text(
+                    customer.phoneNumber ?? 'No phone',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 const SizedBox(width: 16),
                 Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
                 const SizedBox(width: 4),
-                Expanded(child: Text(customer.address ?? 'No address')),
+                Expanded(
+                  child: Text(
+                    customer.address ?? 'No address',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -243,8 +253,10 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
             const SizedBox(height: 12),
 
             // Employee actions based on phase
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8.0,
+              runSpacing: 8.0,
               children: [
                 ElevatedButton.icon(
                   onPressed: () => _viewDetails(customer),
@@ -259,7 +271,6 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
 
                 if (customer.currentPhase == 'installation') ...[
                   FutureBuilder<List<InstallationWorkItem>>(
@@ -289,26 +300,22 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
 
                       final workItems = snapshot.data!;
 
-                      return Row(
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: () =>
-                                _viewInstallationWork(customer, workItems),
-                            icon: const Icon(Icons.construction, size: 16),
-                            label: Text(
-                              'Installation Work (${workItems.length})',
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.deepOrange,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
+                      return ElevatedButton.icon(
+                        onPressed: () =>
+                            _viewInstallationWork(customer, workItems),
+                        icon: const Icon(Icons.construction, size: 16),
+                        label: Text(
+                          'Installation Work (${workItems.length})',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepOrange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
                           ),
-                          const SizedBox(width: 8),
-                        ],
+                        ),
                       );
                     },
                   ),
@@ -328,7 +335,6 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
                   ],
 
                   if (customer.currentPhase == 'survey') ...[
@@ -345,7 +351,6 @@ class _EmployeeUnifiedDashboardState extends State<EmployeeUnifiedDashboard>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
                   ],
                 ],
 

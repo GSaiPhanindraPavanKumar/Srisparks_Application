@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../auth/auth_screen.dart';
+import '../screens/password_reset_screen.dart';
 import '../screens/director/director_dashboard.dart' as director_screen;
 import '../screens/manager/manager_dashboard.dart';
 import '../screens/lead/lead_dashboard.dart';
@@ -38,6 +40,7 @@ import '../models/user_model.dart';
 
 class AppRoutes {
   static const String auth = '/';
+  static const String passwordReset = '/password-reset';
   static const String director = '/director';
   static const String directorOffices = '/director/offices';
   static const String directorUsers = '/director/users';
@@ -85,6 +88,12 @@ class AppRouter {
       case AppRoutes.auth:
         return MaterialPageRoute(
           builder: (_) => const AuthScreen(),
+          settings: settings,
+        );
+
+      case AppRoutes.passwordReset:
+        return MaterialPageRoute(
+          builder: (_) => const PasswordResetScreen(),
           settings: settings,
         );
 

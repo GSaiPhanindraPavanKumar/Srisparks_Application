@@ -64,6 +64,11 @@ class LeadSidebar extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, AppRoutes.myTeam),
           ),
           ListTile(
+            leading: const Icon(Icons.access_time),
+            title: const Text('Attendance'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.attendance),
+          ),
+          ListTile(
             leading: const Icon(Icons.verified),
             title: const Text('Verify Work'),
             onTap: () => Navigator.pushNamed(context, AppRoutes.verifyWork),

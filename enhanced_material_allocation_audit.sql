@@ -6,13 +6,11 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS material_planned_by_id UUID REFER
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS material_planned_date TIMESTAMPTZ;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS material_confirmed_by_id UUID REFERENCES users(id);
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS material_confirmed_date TIMESTAMPTZ;
-ALTER TABLE customers ADD COLUMN IF NOT EXISTS material_delivered_by_id UUID REFERENCES users(id);
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS material_allocation_history JSONB DEFAULT '[]';
 
 -- Add indexes for the new columns
 CREATE INDEX IF NOT EXISTS idx_customers_material_planned_by_id ON customers(material_planned_by_id);
 CREATE INDEX IF NOT EXISTS idx_customers_material_confirmed_by_id ON customers(material_confirmed_by_id);
-CREATE INDEX IF NOT EXISTS idx_customers_material_delivered_by_id ON customers(material_delivered_by_id);
 
 -- Create function to log allocation history
 CREATE OR REPLACE FUNCTION log_material_allocation_action(
@@ -76,8 +74,7 @@ BEGIN
                 action_notes := 'Material allocation confirmed - stock deducted';
                 
             WHEN 'delivered' THEN
-                -- Update delivered fields
-                NEW.material_delivered_by_id := NEW.material_allocated_by_id;
+                -- Materials delivered - only update delivery date
                 NEW.material_delivery_date := NOW();
                 action_notes := 'Materials marked as delivered to customer';
                 
@@ -148,7 +145,6 @@ SELECT
 FROM customers c
 LEFT JOIN users up ON c.material_planned_by_id = up.id
 LEFT JOIN users uc ON c.material_confirmed_by_id = uc.id  
-LEFT JOIN users ud ON c.material_delivered_by_id = ud.id
 WHERE c.material_allocation_status IS NOT NULL
 ORDER BY c.material_planned_date DESC NULLS LAST;
 
@@ -174,7 +170,7 @@ BEGIN
     RAISE NOTICE 'New Tracking Columns Added:';
     RAISE NOTICE '• material_planned_by_id & material_planned_date';
     RAISE NOTICE '• material_confirmed_by_id & material_confirmed_date';  
-    RAISE NOTICE '• material_delivered_by_id & material_delivery_date';
+    RAISE NOTICE '• material_delivery_date (delivery tracking)';
     RAISE NOTICE '• material_allocation_history (complete JSON log)';
     RAISE NOTICE '';
     RAISE NOTICE 'New Views Created:';

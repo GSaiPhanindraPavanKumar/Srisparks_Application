@@ -74,7 +74,6 @@ class CustomerModel {
   materialAllocationStatus; // 'pending', 'planned', 'allocated', 'delivered', 'completed'
   final DateTime? materialAllocationDate; // Date when materials were allocated
   final String? materialAllocatedById; // User who allocated the materials
-  final DateTime? materialDeliveryDate; // Date when materials were delivered
   final String?
   materialAllocationNotes; // Additional notes about material allocation
 
@@ -83,13 +82,32 @@ class CustomerModel {
   final DateTime? materialPlannedDate; // Date when materials were planned
   final String? materialConfirmedById; // User who confirmed the allocation
   final DateTime? materialConfirmedDate; // Date when allocation was confirmed
-  final String? materialDeliveredById; // User who delivered the materials
   final DateTime? materialDeliveredDate; // Date when materials were delivered
   final String?
   materialAllocationHistory; // JSON string containing allocation history
 
-  // Installation Project Fields
+  // Installation Project Reference (details in installation_projects table)
   final String? installationProjectId; // Reference to the installation project
+
+  // Documentation Phase Fields
+  final DateTime?
+  documentationSubmissionDate; // Date when documentation was submitted (DB: documentation_submission_date)
+
+  // Meter Connection Phase Fields
+  final DateTime?
+  dateOfMeter; // Date when meter connection was done (DB: date_of_meter)
+  final DateTime?
+  meterConnectionCompletedDate; // Date when meter connection completed
+
+  // Inverter Turn-on Phase Fields
+  final DateTime?
+  dateOfInverter; // Date when inverter turn-on was done (DB: date_of_inverter)
+  final DateTime?
+  inverterTurnonCompletedDate; // Date when inverter turn-on completed
+
+  // Project Completion Fields
+  final DateTime?
+  projectCompletedDate; // Date when entire project was completed
 
   CustomerModel({
     required this.id,
@@ -160,7 +178,6 @@ class CustomerModel {
     this.materialAllocationStatus = 'pending',
     this.materialAllocationDate,
     this.materialAllocatedById,
-    this.materialDeliveryDate,
     this.materialAllocationNotes,
 
     // Enhanced Audit Trail Fields
@@ -168,12 +185,25 @@ class CustomerModel {
     this.materialPlannedDate,
     this.materialConfirmedById,
     this.materialConfirmedDate,
-    this.materialDeliveredById,
     this.materialDeliveredDate,
     this.materialAllocationHistory,
 
-    // Installation Project Fields
+    // Installation Project Reference
     this.installationProjectId,
+
+    // Documentation Phase Fields
+    this.documentationSubmissionDate,
+
+    // Meter Connection Phase Fields
+    this.dateOfMeter,
+    this.meterConnectionCompletedDate,
+
+    // Inverter Turn-on Phase Fields
+    this.dateOfInverter,
+    this.inverterTurnonCompletedDate,
+
+    // Project Completion Fields
+    this.projectCompletedDate,
   });
 
   // Helper method to safely parse JSON fields from various formats
@@ -277,9 +307,7 @@ class CustomerModel {
           ? DateTime.parse(json['material_allocation_date'])
           : null,
       materialAllocatedById: json['material_allocated_by_id'],
-      materialDeliveryDate: json['material_delivery_date'] != null
-          ? DateTime.parse(json['material_delivery_date'])
-          : null,
+
       materialAllocationNotes: json['material_allocation_notes'],
 
       // Enhanced Audit Trail Fields
@@ -291,7 +319,6 @@ class CustomerModel {
       materialConfirmedDate: json['material_confirmed_date'] != null
           ? DateTime.parse(json['material_confirmed_date'])
           : null,
-      materialDeliveredById: json['material_delivered_by_id'],
       materialDeliveredDate: json['material_delivered_date'] != null
           ? DateTime.parse(json['material_delivered_date'])
           : null,
@@ -299,8 +326,36 @@ class CustomerModel {
         json['material_allocation_history'],
       ),
 
-      // Installation Project Fields
+      // Installation Project Reference
       installationProjectId: json['installation_project_id'],
+
+      // Documentation Phase Fields
+      documentationSubmissionDate: json['documentation_submission_date'] != null
+          ? DateTime.parse(json['documentation_submission_date'])
+          : null,
+
+      // Meter Connection Phase Fields
+      dateOfMeter: json['date_of_meter'] != null
+          ? DateTime.parse(json['date_of_meter'])
+          : null,
+      meterConnectionCompletedDate:
+          json['meter_connection_completed_date'] != null
+          ? DateTime.parse(json['meter_connection_completed_date'])
+          : null,
+
+      // Inverter Turn-on Phase Fields
+      dateOfInverter: json['date_of_inverter'] != null
+          ? DateTime.parse(json['date_of_inverter'])
+          : null,
+      inverterTurnonCompletedDate:
+          json['inverter_turnon_completed_date'] != null
+          ? DateTime.parse(json['inverter_turnon_completed_date'])
+          : null,
+
+      // Project Completion Fields
+      projectCompletedDate: json['project_completed_date'] != null
+          ? DateTime.parse(json['project_completed_date'])
+          : null,
     );
   }
 
@@ -372,7 +427,6 @@ class CustomerModel {
       'material_allocation_status': materialAllocationStatus,
       'material_allocation_date': materialAllocationDate?.toIso8601String(),
       'material_allocated_by_id': materialAllocatedById,
-      'material_delivery_date': materialDeliveryDate?.toIso8601String(),
       'material_allocation_notes': materialAllocationNotes,
 
       // Enhanced Audit Trail Fields
@@ -380,12 +434,28 @@ class CustomerModel {
       'material_planned_date': materialPlannedDate?.toIso8601String(),
       'material_confirmed_by_id': materialConfirmedById,
       'material_confirmed_date': materialConfirmedDate?.toIso8601String(),
-      'material_delivered_by_id': materialDeliveredById,
       'material_delivered_date': materialDeliveredDate?.toIso8601String(),
       'material_allocation_history': materialAllocationHistory,
 
-      // Installation Project Fields
+      // Installation Project Reference
       'installation_project_id': installationProjectId,
+
+      // Documentation Phase Fields
+      'documentation_submission_date': documentationSubmissionDate
+          ?.toIso8601String(),
+
+      // Meter Connection Phase Fields
+      'date_of_meter': dateOfMeter?.toIso8601String(),
+      'meter_connection_completed_date': meterConnectionCompletedDate
+          ?.toIso8601String(),
+
+      // Inverter Turn-on Phase Fields
+      'date_of_inverter': dateOfInverter?.toIso8601String(),
+      'inverter_turnon_completed_date': inverterTurnonCompletedDate
+          ?.toIso8601String(),
+
+      // Project Completion Fields
+      'project_completed_date': projectCompletedDate?.toIso8601String(),
     };
   }
 

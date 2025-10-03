@@ -29,6 +29,21 @@ class OfficeService {
     return OfficeModel.fromJson(response);
   }
 
+  // Get offices by IDs
+  Future<List<OfficeModel>> getOfficesByIds(List<String> officeIds) async {
+    if (officeIds.isEmpty) return [];
+
+    final response = await _supabase
+        .from('offices')
+        .select()
+        .in_('id', officeIds)
+        .eq('is_active', true);
+
+    return (response as List)
+        .map((office) => OfficeModel.fromJson(office))
+        .toList();
+  }
+
   // Create new office
   Future<OfficeModel> createOffice({
     required String name,

@@ -60,6 +60,25 @@ class UserService {
     }
   }
 
+  // Get users by IDs
+  Future<List<UserModel>> getUsersByIds(List<String> userIds) async {
+    if (userIds.isEmpty) return [];
+
+    try {
+      final response = await _supabase
+          .from('users')
+          .select()
+          .in_('id', userIds);
+
+      return (response as List)
+          .map((user) => UserModel.fromJson(user))
+          .toList();
+    } catch (e) {
+      print('Error fetching users by IDs: $e');
+      return [];
+    }
+  }
+
   // Get users by office
   Future<List<UserModel>> getUsersByOffice(String officeId) async {
     final response = await _supabase

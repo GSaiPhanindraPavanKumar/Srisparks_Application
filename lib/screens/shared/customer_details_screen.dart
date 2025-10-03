@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/customer_model.dart';
+import '../../models/installation_project_model.dart';
+import '../../services/installation_project_service.dart';
 
 class CustomerDetailsScreen extends StatefulWidget {
   final CustomerModel customer;
@@ -14,11 +16,31 @@ class CustomerDetailsScreen extends StatefulWidget {
 class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final InstallationProjectService _installationService =
+      InstallationProjectService();
+  InstallationProjectModel? _installationProject;
+  bool _isLoadingInstallation = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadInstallationProject();
+  }
+
+  Future<void> _loadInstallationProject() async {
+    setState(() => _isLoadingInstallation = true);
+    try {
+      final project = await _installationService.getProjectByCustomerId(
+        widget.customer.id,
+      );
+      setState(() => _installationProject = project);
+    } catch (e) {
+      // Handle error silently - installation project might not exist yet
+      setState(() => _installationProject = null);
+    } finally {
+      setState(() => _isLoadingInstallation = false);
+    }
   }
 
   @override
@@ -707,6 +729,151 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
               Icons.check_circle,
             ),
 
+          // Material Delivery (based on status)
+          if (widget.customer.materialDeliveredDate != null)
+            _buildTimelineItem(
+              'Material Delivered',
+              DateFormat(
+                'dd/MM/yyyy HH:mm',
+              ).format(widget.customer.materialDeliveredDate!),
+              true,
+              Colors.teal,
+              'Materials delivered to site and ready for installation',
+              Icons.local_shipping,
+            ),
+
+          // Installation Phase - This will be managed by installation_projects table
+          _buildInstallationPhaseTimeline(),
+
+          // Documentation Phase
+          if (widget.customer.documentationSubmissionDate != null)
+            _buildTimelineItem(
+              'Documentation Submitted',
+              DateFormat(
+                'dd/MM/yyyy HH:mm',
+              ).format(widget.customer.documentationSubmissionDate!),
+              true,
+              Colors.blue,
+              'Documentation submitted for government approvals',
+              Icons.description,
+            ),
+
+          if (widget.customer.currentPhase == 'documentation' &&
+              widget.customer.documentationSubmissionDate == null)
+            _buildTimelineItem(
+              'Documentation Phase',
+              'In Progress',
+              false,
+              Colors.blue,
+              'Preparing documentation for government approvals',
+              Icons.description,
+            ),
+
+          // Meter Connection Phase
+          if (widget.customer.dateOfMeter != null)
+            _buildTimelineItem(
+              'Meter Connected',
+              DateFormat(
+                'dd/MM/yyyy HH:mm',
+              ).format(widget.customer.dateOfMeter!),
+              true,
+              Colors.purple,
+              'Grid connection and meter installation completed',
+              Icons.electrical_services,
+            ),
+
+          if (widget.customer.currentPhase == 'meter_connection' &&
+              widget.customer.dateOfMeter == null)
+            _buildTimelineItem(
+              'Meter Connection Phase',
+              'In Progress',
+              false,
+              Colors.purple,
+              'Grid connection and meter installation in progress',
+              Icons.electrical_services,
+            ),
+
+          if (_hasPhaseCompleted('meter_connection') &&
+              widget.customer.dateOfMeter == null)
+            _buildTimelineItem(
+              'Meter Connected',
+              'Phase Completed',
+              true,
+              Colors.purple,
+              'Grid connection established and meter installed',
+              Icons.power,
+            ),
+
+          // Inverter Turn-on Phase
+          if (widget.customer.dateOfInverter != null)
+            _buildTimelineItem(
+              'Inverter Turn-on',
+              DateFormat(
+                'dd/MM/yyyy HH:mm',
+              ).format(widget.customer.dateOfInverter!),
+              true,
+              Colors.amber,
+              'Inverter turned on and system activated successfully',
+              Icons.power_settings_new,
+            ),
+
+          if (widget.customer.currentPhase == 'inverter_turnon' &&
+              widget.customer.dateOfInverter == null)
+            _buildTimelineItem(
+              'Inverter Turn-on Phase',
+              'In Progress',
+              false,
+              Colors.amber,
+              'System commissioning and inverter activation',
+              Icons.power_settings_new,
+            ),
+
+          if (_hasPhaseCompleted('inverter_turnon') &&
+              widget.customer.dateOfInverter == null)
+            _buildTimelineItem(
+              'Inverter Turn-on',
+              'Phase Completed',
+              true,
+              Colors.amber,
+              'Inverter turned on and system operational',
+              Icons.flash_on,
+            ),
+
+          // Project Completion
+          if (widget.customer.projectCompletedDate != null)
+            _buildTimelineItem(
+              'Project Completed',
+              DateFormat(
+                'dd/MM/yyyy HH:mm',
+              ).format(widget.customer.projectCompletedDate!),
+              true,
+              Colors.green,
+              'Solar project successfully completed and handed over',
+              Icons.check_circle_outline,
+            ),
+
+          if (widget.customer.currentPhase == 'completed' &&
+              widget.customer.projectCompletedDate == null)
+            _buildTimelineItem(
+              'Project Completed',
+              DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()),
+              true,
+              Colors.green,
+              'Solar project successfully completed and handed over',
+              Icons.check_circle_outline,
+            ),
+
+          // Service Phase
+          if (widget.customer.currentPhase == 'service_phase')
+            _buildTimelineItem(
+              'Service Phase',
+              'Ongoing',
+              true,
+              Colors.lightGreen,
+              'Project in service and maintenance phase',
+              Icons.build,
+            ),
+
           // Current phase indicator
           _buildTimelineItem(
             'Current Phase: ${_getPhaseDisplayName(widget.customer.currentPhase)}',
@@ -719,6 +886,168 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
         ],
       ),
     );
+  }
+
+  Widget _buildInstallationPhaseTimeline() {
+    if (_isLoadingInstallation) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_installationProject == null) {
+      // No installation project exists yet
+      if (widget.customer.currentPhase == 'installation') {
+        return _buildTimelineItem(
+          'Installation Phase',
+          'Pending Assignment',
+          false,
+          Colors.orange,
+          'Installation project not yet created',
+          Icons.construction,
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
+    final project = _installationProject!;
+    return Column(
+      children: [
+        // Installation Project Created
+        _buildTimelineItem(
+          'Installation Assigned',
+          project.assignedDate != null
+              ? DateFormat('dd/MM/yyyy HH:mm').format(project.assignedDate!)
+              : DateFormat('dd/MM/yyyy HH:mm').format(project.createdAt),
+          true,
+          Colors.orange,
+          'Installation project created and assigned',
+          Icons.assignment,
+        ),
+
+        // Installation Started
+        if (project.startedDate != null)
+          _buildTimelineItem(
+            'Installation Started',
+            DateFormat('dd/MM/yyyy HH:mm').format(project.startedDate!),
+            true,
+            Colors.orange,
+            'Solar panel installation work has begun',
+            Icons.construction,
+          ),
+
+        // Installation in Progress
+        if (project.isInProgress && project.startedDate != null)
+          _buildTimelineItem(
+            'Installation In Progress',
+            'Ongoing',
+            false,
+            Colors.orange,
+            'Solar panel installation work in progress',
+            Icons.build,
+          ),
+
+        // Installation Completed
+        if (project.completedDate != null)
+          _buildTimelineItem(
+            'Installation Completed',
+            DateFormat('dd/MM/yyyy HH:mm').format(project.completedDate!),
+            true,
+            Colors.orange,
+            'Solar panel installation work completed',
+            Icons.solar_power,
+          ),
+
+        // Installation Verified
+        if (project.isVerified)
+          _buildTimelineItem(
+            'Installation Verified',
+            'Verified',
+            true,
+            Colors.green,
+            'Installation quality verified and approved',
+            Icons.verified,
+          ),
+
+        // Installation Approved
+        if (project.isApproved)
+          _buildTimelineItem(
+            'Installation Approved',
+            'Approved',
+            true,
+            Colors.green,
+            'Installation officially approved and signed off',
+            Icons.check_circle,
+          ),
+
+        // Show current status if not completed
+        if (!project.isCompleted && !project.isVerified && !project.isApproved)
+          _buildTimelineItem(
+            'Installation Status',
+            project.statusDisplayName,
+            project.isInProgress,
+            _getInstallationStatusColor(project.status),
+            _getInstallationStatusDescription(project.status),
+            _getInstallationStatusIcon(project.status),
+          ),
+      ],
+    );
+  }
+
+  Color _getInstallationStatusColor(String status) {
+    switch (status) {
+      case 'created':
+      case 'assigned':
+        return Colors.blue;
+      case 'in_progress':
+        return Colors.orange;
+      case 'completed':
+        return Colors.green;
+      case 'verified':
+      case 'approved':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getInstallationStatusDescription(String status) {
+    switch (status) {
+      case 'created':
+        return 'Installation project created, awaiting assignment';
+      case 'assigned':
+        return 'Installation team assigned, work pending';
+      case 'in_progress':
+        return 'Installation work currently in progress';
+      case 'completed':
+        return 'Installation work completed, awaiting verification';
+      case 'verified':
+        return 'Installation verified and quality checked';
+      case 'approved':
+        return 'Installation approved and project complete';
+      default:
+        return 'Installation status unknown';
+    }
+  }
+
+  IconData _getInstallationStatusIcon(String status) {
+    switch (status) {
+      case 'created':
+        return Icons.create;
+      case 'assigned':
+        return Icons.assignment;
+      case 'in_progress':
+        return Icons.build;
+      case 'completed':
+        return Icons.done;
+      case 'verified':
+        return Icons.verified;
+      case 'approved':
+        return Icons.check_circle;
+      default:
+        return Icons.help_outline;
+    }
   }
 
   Widget _buildTimelineItem(
@@ -1059,5 +1388,29 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
         ),
       ),
     );
+  }
+
+  // Helper method to check if a phase has been completed based on current phase
+  bool _hasPhaseCompleted(String phase) {
+    // Define the phase order
+    const phaseOrder = [
+      'application',
+      'amount',
+      'material',
+      'material_allocation',
+      'material_delivery',
+      'installation',
+      'documentation',
+      'meter_connection',
+      'inverter_turnon',
+      'completed',
+      'service_phase',
+    ];
+
+    final currentPhaseIndex = phaseOrder.indexOf(widget.customer.currentPhase);
+    final targetPhaseIndex = phaseOrder.indexOf(phase);
+
+    // If current phase is later in the order, then the target phase is completed
+    return currentPhaseIndex > targetPhaseIndex;
   }
 }

@@ -497,56 +497,7 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                // Leadership checkbox (only for employees)
-                if (_selectedRole == UserRole.employee) ...[
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.supervisor_account,
-                          color: Colors.orange.shade600,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Team Lead',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              Text(
-                                'This employee will have leadership responsibilities',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Switch.adaptive(
-                          value: _isLead,
-                          onChanged: (value) {
-                            setState(() {
-                              _isLead = value;
-                            });
-                          },
-                          activeColor: Colors.orange,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
+                // Leadership option removed - _isLead remains false
 
                 // Office Selection (fixed for managers/leads)
                 if (widget.allOffices.isNotEmpty) ...[

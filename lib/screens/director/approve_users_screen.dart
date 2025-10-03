@@ -20,6 +20,8 @@ class _ApproveUsersScreenState extends State<ApproveUsersScreen> {
   List<UserModel> _allPendingUsers = [];
   List<UserModel> _filteredPendingUsers = [];
   List<OfficeModel> _allOffices = [];
+  Map<String, String> _officeNames = {}; // Map office ID to office name
+  Map<String, String> _userNames = {}; // Map user ID to user name
   String? _selectedOfficeId;
   bool _isLoading = true;
   UserModel? _currentUser;
@@ -62,6 +64,13 @@ class _ApproveUsersScreenState extends State<ApproveUsersScreen> {
 
     try {
       _allPendingUsers = await _userService.getPendingUsers();
+
+      // Fetch office names for pending users
+      await _loadOfficeNames();
+
+      // Fetch user names for "added by" users
+      await _loadUserNames();
+
       _filterUsers();
     } catch (e) {
       _showMessage('Error loading pending users: $e');
@@ -69,6 +78,44 @@ class _ApproveUsersScreenState extends State<ApproveUsersScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadOfficeNames() async {
+    try {
+      // Get unique office IDs from pending users
+      final officeIds = _allPendingUsers
+          .where((user) => user.officeId != null)
+          .map((user) => user.officeId!)
+          .toSet()
+          .toList();
+
+      if (officeIds.isNotEmpty) {
+        final offices = await _officeService.getOfficesByIds(officeIds);
+        _officeNames = {for (var office in offices) office.id: office.name};
+      }
+    } catch (e) {
+      print('Error loading office names: $e');
+    }
+  }
+
+  Future<void> _loadUserNames() async {
+    try {
+      // Get unique user IDs from "added by" field
+      final userIds = _allPendingUsers
+          .where((user) => user.addedBy != null)
+          .map((user) => user.addedBy!)
+          .toSet()
+          .toList();
+
+      if (userIds.isNotEmpty) {
+        final users = await _userService.getUsersByIds(userIds);
+        _userNames = {
+          for (var user in users) user.id: user.fullName ?? user.email,
+        };
+      }
+    } catch (e) {
+      print('Error loading user names: $e');
     }
   }
 
@@ -351,6 +398,38 @@ class _ApproveUsersScreenState extends State<ApproveUsersScreen> {
                     const SizedBox(width: 8),
                     Text(
                       user.phoneNumber!,
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Office name
+            if (user.officeId != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.business, size: 16, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Office: ${_officeNames[user.officeId] ?? 'Unknown Office'}',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Added by
+            if (user.addedBy != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.person_add, size: 16, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Added by: ${_userNames[user.addedBy] ?? 'Unknown User'}',
                       style: const TextStyle(color: Colors.grey),
                     ),
                   ],

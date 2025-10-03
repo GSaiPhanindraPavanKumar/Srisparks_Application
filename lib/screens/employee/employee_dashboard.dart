@@ -111,9 +111,12 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
           children: [
             Icon(Icons.person_outline, size: 24),
             const SizedBox(width: 8),
-            const Text(
-              'Employee Dashboard',
-              style: TextStyle(fontWeight: FontWeight.w600),
+            Flexible(
+              child: Text(
+                'Employee Dashboard',
+                style: TextStyle(fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -623,12 +626,15 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                   color: Colors.white.withOpacity(0.9),
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.now()),
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: isMobile ? 11 : 12,
-                    fontWeight: FontWeight.w500,
+                Flexible(
+                  child: Text(
+                    DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.now()),
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: isMobile ? 11 : 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

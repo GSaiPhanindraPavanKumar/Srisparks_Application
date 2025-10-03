@@ -111,8 +111,35 @@ class AuthService {
   }
 
   // Reset password
-  Future<void> resetPassword(String email) async {
-    await _supabase.auth.resetPasswordForEmail(email);
+  Future<bool> resetPassword(String email) async {
+    try {
+      print('Attempting to send reset password email to: $email');
+
+      // Use the production URL for the redirect
+      const redirectTo = 'https://srisparksapplication.web.app/password-reset';
+
+      await _supabase.auth.resetPasswordForEmail(email, redirectTo: redirectTo);
+
+      print('Reset password email sent successfully');
+      return true;
+    } catch (e) {
+      print('Error sending reset password email: $e');
+      throw Exception('Failed to send reset password email: ${e.toString()}');
+    }
+  }
+
+  // Handle password reset callback (when user clicks the link)
+  Future<bool> handlePasswordResetCallback(
+    String accessToken,
+    String refreshToken,
+  ) async {
+    try {
+      final response = await _supabase.auth.setSession(refreshToken);
+      return response.session != null;
+    } catch (e) {
+      print('Error handling password reset callback: $e');
+      return false;
+    }
   }
 
   // Update password

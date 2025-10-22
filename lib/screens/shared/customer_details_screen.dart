@@ -730,12 +730,20 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
             ),
 
           // Material Delivery (based on status)
-          if (widget.customer.materialDeliveredDate != null)
+          if (widget.customer.materialAllocationStatus == 'confirmed' ||
+              widget.customer.currentPhase == 'material_delivery' ||
+              widget.customer.currentPhase == 'installation' ||
+              widget.customer.currentPhase == 'documentation' ||
+              widget.customer.currentPhase == 'meter_connection' ||
+              widget.customer.currentPhase == 'inverter_turnon' ||
+              widget.customer.currentPhase == 'completed')
             _buildTimelineItem(
               'Material Delivered',
-              DateFormat(
-                'dd/MM/yyyy HH:mm',
-              ).format(widget.customer.materialDeliveredDate!),
+              widget.customer.materialConfirmedDate != null
+                  ? DateFormat(
+                      'dd/MM/yyyy HH:mm',
+                    ).format(widget.customer.materialConfirmedDate!)
+                  : 'Status: ${widget.customer.materialAllocationStatus}',
               true,
               Colors.teal,
               'Materials delivered to site and ready for installation',

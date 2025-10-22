@@ -1362,6 +1362,7 @@ class _DirectorUnifiedDashboardState extends State<DirectorUnifiedDashboard>
     final _paymentAmountController = TextEditingController();
     final _utrController = TextEditingController();
     final _notesController = TextEditingController();
+    DateTime _selectedPaymentDate = DateTime.now(); // Default to today
 
     // Initialize with existing values
     _kwController.text =
@@ -1374,253 +1375,283 @@ class _DirectorUnifiedDashboardState extends State<DirectorUnifiedDashboard>
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Manage Amount - ${customer.name}'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Amount Summary
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Current Status:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Total: ₹${NumberFormat('#,##,###').format(customer.amountTotal ?? 0)}',
-                    ),
-                    Text(
-                      'Paid: ₹${NumberFormat('#,##,###').format(customer.totalAmountPaid)}',
-                    ),
-                    Text(
-                      'Pending: ₹${NumberFormat('#,##,###').format(customer.pendingAmount)}',
-                    ),
-                    Text(
-                      'Status: ${customer.calculatedPaymentStatus.toUpperCase()}',
-                    ),
-                    if (customer.paymentHistory.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Payments Made: ${customer.paymentHistory.length}',
-                        style: TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Show payment history if exists
-              if (customer.paymentHistory.isNotEmpty) ...[
-                Text(
-                  'Payment History:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Manage Amount - ${customer.name}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Amount Summary
                 Container(
-                  constraints: BoxConstraints(maxHeight: 120),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: customer.paymentHistory.map((payment) {
-                        final amount = payment['amount']?.toDouble() ?? 0.0;
-                        final date =
-                            DateTime.tryParse(payment['date'] ?? '') ??
-                            DateTime.now();
-                        final utr = payment['utr_number'] ?? '';
-                        return Card(
-                          child: ListTile(
-                            dense: true,
-                            title: Text(
-                              '₹${NumberFormat('#,##,###').format(amount)}',
-                            ),
-                            subtitle: Text(
-                              '${DateFormat('dd/MM/yyyy').format(date)} - UTR: $utr',
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Current Status:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Total: ₹${NumberFormat('#,##,###').format(customer.amountTotal ?? 0)}',
+                      ),
+                      Text(
+                        'Paid: ₹${NumberFormat('#,##,###').format(customer.totalAmountPaid)}',
+                      ),
+                      Text(
+                        'Pending: ₹${NumberFormat('#,##,###').format(customer.pendingAmount)}',
+                      ),
+                      Text(
+                        'Status: ${customer.calculatedPaymentStatus.toUpperCase()}',
+                      ),
+                      if (customer.paymentHistory.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Payments Made: ${customer.paymentHistory.length}',
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 const SizedBox(height: 16),
-              ],
 
-              // Final kW - disable editing if already set
-              TextFormField(
-                controller: _kwController,
-                enabled: !isAmountSet,
-                decoration: InputDecoration(
-                  labelText: 'Final kW Capacity',
-                  border: OutlineInputBorder(),
-                  suffixText: 'kW',
-                  helperText: isAmountSet ? 'Cannot modify once set' : null,
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
+                // Show payment history if exists
+                if (customer.paymentHistory.isNotEmpty) ...[
+                  Text(
+                    'Payment History:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    constraints: BoxConstraints(maxHeight: 120),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: customer.paymentHistory.map((payment) {
+                          final amount = payment['amount']?.toDouble() ?? 0.0;
+                          final date =
+                              DateTime.tryParse(payment['date'] ?? '') ??
+                              DateTime.now();
+                          final utr = payment['utr_number'] ?? '';
+                          return Card(
+                            child: ListTile(
+                              dense: true,
+                              title: Text(
+                                '₹${NumberFormat('#,##,###').format(amount)}',
+                              ),
+                              subtitle: Text(
+                                '${DateFormat('dd/MM/yyyy').format(date)} - UTR: $utr',
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
-              // Total Amount - disable editing if already set
-              TextFormField(
-                controller: _totalAmountController,
-                enabled: !isAmountSet,
-                decoration: InputDecoration(
-                  labelText: 'Total Project Amount',
-                  border: OutlineInputBorder(),
-                  prefixText: '₹',
-                  helperText: isAmountSet ? 'Cannot modify once set' : null,
-                ),
-                keyboardType: TextInputType.number,
-              ),
-
-              // Only show payment fields if amount is set
-              if (isAmountSet && customer.pendingAmount > 0) ...[
-                const SizedBox(height: 16),
-                const Divider(),
-                Text(
-                  'Add New Payment:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-
-                // Payment Amount
+                // Final kW - disable editing if already set
                 TextFormField(
-                  controller: _paymentAmountController,
+                  controller: _kwController,
+                  enabled: !isAmountSet,
                   decoration: InputDecoration(
-                    labelText: 'Payment Amount',
+                    labelText: 'Final kW Capacity',
                     border: OutlineInputBorder(),
-                    prefixText: '₹',
-                    helperText:
-                        'Max: ₹${NumberFormat('#,##,###').format(customer.pendingAmount)}',
+                    suffixText: 'kW',
+                    helperText: isAmountSet ? 'Cannot modify once set' : null,
                   ),
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 16),
 
-                // UTR Number
+                // Total Amount - disable editing if already set
                 TextFormField(
-                  controller: _utrController,
-                  decoration: const InputDecoration(
-                    labelText: 'UTR/Transaction Number',
+                  controller: _totalAmountController,
+                  enabled: !isAmountSet,
+                  decoration: InputDecoration(
+                    labelText: 'Total Project Amount',
                     border: OutlineInputBorder(),
+                    prefixText: '₹',
+                    helperText: isAmountSet ? 'Cannot modify once set' : null,
                   ),
+                  keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 16),
 
-                // Payment Notes
-                TextFormField(
-                  controller: _notesController,
-                  decoration: const InputDecoration(
-                    labelText: 'Payment Notes (Optional)',
-                    border: OutlineInputBorder(),
+                // Only show payment fields if amount is set
+                if (isAmountSet && customer.pendingAmount > 0) ...[
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  Text(
+                    'Add New Payment:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  maxLines: 2,
-                ),
+                  const SizedBox(height: 8),
+
+                  // Payment Amount
+                  TextFormField(
+                    controller: _paymentAmountController,
+                    decoration: InputDecoration(
+                      labelText: 'Payment Amount',
+                      border: OutlineInputBorder(),
+                      prefixText: '₹',
+                      helperText:
+                          'Max: ₹${NumberFormat('#,##,###').format(customer.pendingAmount)}',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Payment Date Picker
+                  InkWell(
+                    onTap: () async {
+                      final DateTime? picked = await showDatePicker(
+                        context: context,
+                        initialDate: _selectedPaymentDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null && picked != _selectedPaymentDate) {
+                        setState(() {
+                          _selectedPaymentDate = picked;
+                        });
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Payment Date',
+                        border: OutlineInputBorder(),
+                        suffixIcon: Icon(Icons.calendar_today),
+                      ),
+                      child: Text(
+                        DateFormat('dd/MM/yyyy').format(_selectedPaymentDate),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // UTR Number
+                  TextFormField(
+                    controller: _utrController,
+                    decoration: const InputDecoration(
+                      labelText: 'UTR/Transaction Number',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Payment Notes
+                  TextFormField(
+                    controller: _notesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Payment Notes (Optional)',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 2,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-
-          // View Details button
-          if (isAmountSet)
+          actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _showPaymentDetails(customer);
-              },
-              child: const Text('View Details'),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
             ),
 
-          // Set Amount button (only if not set)
-          if (!isAmountSet)
-            ElevatedButton(
-              onPressed: () async {
-                final kw = int.tryParse(_kwController.text);
-                final totalAmount = double.tryParse(
-                  _totalAmountController.text,
-                );
-
-                if (kw == null || kw <= 0) {
-                  _showMessage('Please enter valid kW capacity');
-                  return;
-                }
-
-                if (totalAmount == null || totalAmount <= 0) {
-                  _showMessage('Please enter valid total amount');
-                  return;
-                }
-
-                try {
+            // View Details button
+            if (isAmountSet)
+              TextButton(
+                onPressed: () {
                   Navigator.pop(context);
-                  await _customerService.setAmountPhaseDetails(
-                    customerId: customer.id,
-                    userId: _currentUser!.id,
-                    finalKw: kw,
-                    totalAmount: totalAmount,
+                  _showPaymentDetails(customer);
+                },
+                child: const Text('View Details'),
+              ),
+
+            // Set Amount button (only if not set)
+            if (!isAmountSet)
+              ElevatedButton(
+                onPressed: () async {
+                  final kw = int.tryParse(_kwController.text);
+                  final totalAmount = double.tryParse(
+                    _totalAmountController.text,
                   );
-                  _showMessage('Amount phase details set successfully');
-                  _loadCustomers();
-                } catch (e) {
-                  _showMessage('Error setting amount details: $e');
-                }
-              },
-              child: const Text('Set Amount'),
-            ),
 
-          // Add Payment button (only if amount is set and pending amount > 0)
-          if (isAmountSet && customer.pendingAmount > 0)
-            ElevatedButton(
-              onPressed: () async {
-                final paymentAmount = double.tryParse(
-                  _paymentAmountController.text,
-                );
-                final utr = _utrController.text.trim();
+                  if (kw == null || kw <= 0) {
+                    _showMessage('Please enter valid kW capacity');
+                    return;
+                  }
 
-                if (paymentAmount == null || paymentAmount <= 0) {
-                  _showMessage('Please enter valid payment amount');
-                  return;
-                }
+                  if (totalAmount == null || totalAmount <= 0) {
+                    _showMessage('Please enter valid total amount');
+                    return;
+                  }
 
-                if (utr.isEmpty) {
-                  _showMessage('Please enter UTR number');
-                  return;
-                }
+                  try {
+                    Navigator.pop(context);
+                    await _customerService.setAmountPhaseDetails(
+                      customerId: customer.id,
+                      userId: _currentUser!.id,
+                      finalKw: kw,
+                      totalAmount: totalAmount,
+                    );
+                    _showMessage('Amount phase details set successfully');
+                    _loadCustomers();
+                  } catch (e) {
+                    _showMessage('Error setting amount details: $e');
+                  }
+                },
+                child: const Text('Set Amount'),
+              ),
 
-                try {
-                  Navigator.pop(context);
-                  await _customerService.addPayment(
-                    customerId: customer.id,
-                    userId: _currentUser!.id,
-                    paymentAmount: paymentAmount,
-                    paymentDate: DateTime.now(),
-                    utrNumber: utr,
-                    notes: _notesController.text.trim(),
+            // Add Payment button (only if amount is set and pending amount > 0)
+            if (isAmountSet && customer.pendingAmount > 0)
+              ElevatedButton(
+                onPressed: () async {
+                  final paymentAmount = double.tryParse(
+                    _paymentAmountController.text,
                   );
-                  _showMessage('Payment added successfully');
-                  _loadCustomers();
-                } catch (e) {
-                  _showMessage('Error adding payment: $e');
-                }
-              },
-              child: const Text('Add Payment'),
-            ),
-        ],
-      ),
+                  final utr = _utrController.text.trim();
+
+                  if (paymentAmount == null || paymentAmount <= 0) {
+                    _showMessage('Please enter valid payment amount');
+                    return;
+                  }
+
+                  if (utr.isEmpty) {
+                    _showMessage('Please enter UTR number');
+                    return;
+                  }
+
+                  try {
+                    Navigator.pop(context);
+                    await _customerService.addPayment(
+                      customerId: customer.id,
+                      userId: _currentUser!.id,
+                      paymentAmount: paymentAmount,
+                      paymentDate: _selectedPaymentDate,
+                      utrNumber: utr,
+                      notes: _notesController.text.trim(),
+                    );
+                    _showMessage('Payment added successfully');
+                    _loadCustomers();
+                  } catch (e) {
+                    _showMessage('Error adding payment: $e');
+                  }
+                },
+                child: const Text('Add Payment'),
+              ),
+          ],
+        ),
+      ), // Close StatefulBuilder
     );
   }
 

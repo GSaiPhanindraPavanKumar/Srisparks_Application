@@ -31,6 +31,28 @@ class AttendanceService {
     }
   }
 
+  // Check if user has checked in today (for any status)
+  Future<bool> hasCheckedInToday(String userId) async {
+    try {
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+
+      final response = await _supabase
+          .from('attendance')
+          .select('id')
+          .eq('user_id', userId)
+          .gte('check_in_time', startOfDay.toIso8601String())
+          .lt('check_in_time', endOfDay.toIso8601String())
+          .maybeSingle();
+
+      return response != null;
+    } catch (e) {
+      print('Error checking if user has checked in today: $e');
+      return false;
+    }
+  }
+
   // Get current location
   Future<Position> _getCurrentLocation() async {
     bool serviceEnabled;
@@ -380,6 +402,161 @@ class AttendanceService {
         'averageDuration': Duration.zero,
         'onTimeCount': 0,
         'onTimePercentage': 0,
+      };
+    }
+  }
+
+  // Get attendance records with user details (for leads/managers)
+  Future<List<Map<String, dynamic>>> getAttendanceWithUserDetails({
+    String? officeId,
+    DateTime? date,
+    String? status,
+  }) async {
+    try {
+      // First, get attendance records
+      var query = _supabase.from('attendance').select('*');
+
+      // Filter by office if provided
+      if (officeId != null) {
+        query = query.eq('office_id', officeId);
+      }
+
+      // Filter by date if provided
+      if (date != null) {
+        final startOfDay = DateTime(date.year, date.month, date.day);
+        final endOfDay = startOfDay.add(const Duration(days: 1));
+        query = query
+            .gte('check_in_time', startOfDay.toIso8601String())
+            .lt('check_in_time', endOfDay.toIso8601String());
+      } else {
+        // Default to today
+        final today = DateTime.now();
+        final startOfDay = DateTime(today.year, today.month, today.day);
+        final endOfDay = startOfDay.add(const Duration(days: 1));
+        query = query
+            .gte('check_in_time', startOfDay.toIso8601String())
+            .lt('check_in_time', endOfDay.toIso8601String());
+      }
+
+      // Filter by status if provided
+      if (status != null) {
+        query = query.eq('status', status);
+      }
+
+      final attendanceRecords = await query.order(
+        'check_in_time',
+        ascending: false,
+      );
+
+      // If no records, return empty list
+      if (attendanceRecords.isEmpty) {
+        return [];
+      }
+
+      // Get unique user IDs
+      final userIds = (attendanceRecords as List<dynamic>)
+          .map((record) => record['user_id'] as String)
+          .toSet()
+          .toList();
+
+      // Fetch user details
+      final usersResponse = await _supabase
+          .from('users')
+          .select('id, full_name, email, role, is_lead')
+          .in_('id', userIds);
+
+      // Create a map of user details for quick lookup
+      final userMap = <String, Map<String, dynamic>>{};
+      for (var user in usersResponse as List<dynamic>) {
+        userMap[user['id'] as String] = user as Map<String, dynamic>;
+      }
+
+      // Combine attendance with user details
+      final result = <Map<String, dynamic>>[];
+      for (var attendance in attendanceRecords) {
+        final attendanceMap = attendance as Map<String, dynamic>;
+        final userId = attendanceMap['user_id'] as String;
+        final userDetails = userMap[userId];
+
+        if (userDetails != null) {
+          // Create a combined record
+          final combined = Map<String, dynamic>.from(attendanceMap);
+          combined['users'] = userDetails;
+          result.add(combined);
+        }
+      }
+
+      return result;
+    } catch (e) {
+      print('Error getting attendance with user details: $e');
+      return [];
+    }
+  }
+
+  // Get today's team attendance (for leads)
+  Future<List<Map<String, dynamic>>> getTodayTeamAttendance(
+    String officeId,
+  ) async {
+    try {
+      return await getAttendanceWithUserDetails(
+        officeId: officeId,
+        date: DateTime.now(),
+      );
+    } catch (e) {
+      print('Error getting today\'s team attendance: $e');
+      return [];
+    }
+  }
+
+  // Get attendance summary by user (for reporting)
+  Future<Map<String, dynamic>> getUserAttendanceSummary({
+    required String userId,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      final records = await getOfficeAttendanceRecords(
+        userId: userId,
+        startDate: startDate,
+        endDate: endDate,
+        limit: 1000,
+      );
+
+      final totalDays = records.length;
+      final completedDays = records
+          .where((r) => r.status == 'checked_out')
+          .length;
+      final presentDays = records.where((r) => r.checkInTime.hour < 9).length;
+
+      Duration totalHours = Duration.zero;
+      for (final record in records.where((r) => r.checkOutTime != null)) {
+        totalHours += record.checkOutTime!.difference(record.checkInTime);
+      }
+
+      return {
+        'totalDays': totalDays,
+        'completedDays': completedDays,
+        'presentDays': presentDays,
+        'totalHours': totalHours,
+        'averageHours': completedDays > 0
+            ? Duration(
+                milliseconds: (totalHours.inMilliseconds / completedDays)
+                    .round(),
+              )
+            : Duration.zero,
+        'attendanceRate': totalDays > 0
+            ? (completedDays / totalDays * 100).round()
+            : 0,
+      };
+    } catch (e) {
+      print('Error getting user attendance summary: $e');
+      return {
+        'totalDays': 0,
+        'completedDays': 0,
+        'presentDays': 0,
+        'totalHours': Duration.zero,
+        'averageHours': Duration.zero,
+        'attendanceRate': 0,
       };
     }
   }

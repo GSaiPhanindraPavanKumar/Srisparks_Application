@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../models/customer_model.dart';
 import '../../models/user_model.dart';
+import '../../models/office_model.dart';
 import '../../services/customer_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/office_service.dart';
 
 class CreateCustomerApplicationScreen extends StatefulWidget {
   const CreateCustomerApplicationScreen({super.key});
 
   @override
-  State<CreateCustomerApplicationScreen> createState() =>
+  State<CreateCustomerApplicationScreen> createState() => 
       _CreateCustomerApplicationScreenState();
 }
 
@@ -18,11 +20,17 @@ class _CreateCustomerApplicationScreenState
   final _formKey = GlobalKey<FormState>();
   final CustomerService _customerService = CustomerService();
   final AuthService _authService = AuthService();
+  final OfficeService _officeService = OfficeService();
 
   late TabController _tabController;
 
   UserModel? _currentUser;
   bool _isLoading = false;
+  bool _isLoadingOffices = false;
+
+  // Office selection
+  List<OfficeModel> _availableOffices = [];
+  String? _selectedOfficeId;
 
   // Basic Information
   final _nameController = TextEditingController();
@@ -30,7 +38,6 @@ class _CreateCustomerApplicationScreenState
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
   final _cityController = TextEditingController();
-  final _stateController = TextEditingController();
   final _zipCodeController = TextEditingController();
   final _countryController = TextEditingController();
 
@@ -53,6 +60,49 @@ class _CreateCustomerApplicationScreenState
   String _siteSurveyStatus = 'pending'; // pending, ongoing, completed
   bool _isCurrentUserDoingSurvey = false;
 
+  // State selection
+  String _selectedState = 'Andhra Pradesh';
+
+  // Indian States List
+  final List<String> _indianStates = [
+    'Andhra Pradesh',
+    'Arunachal Pradesh',
+    'Assam',
+    'Bihar',
+    'Chhattisgarh',
+    'Goa',
+    'Gujarat',
+    'Haryana',
+    'Himachal Pradesh',
+    'Jharkhand',
+    'Karnataka',
+    'Kerala',
+    'Madhya Pradesh',
+    'Maharashtra',
+    'Manipur',
+    'Meghalaya',
+    'Mizoram',
+    'Nagaland',
+    'Odisha',
+    'Punjab',
+    'Rajasthan',
+    'Sikkim',
+    'Tamil Nadu',
+    'Telangana',
+    'Tripura',
+    'Uttar Pradesh',
+    'Uttarakhand',
+    'West Bengal',
+    'Andaman and Nicobar Islands',
+    'Chandigarh',
+    'Dadra and Nagar Haveli and Daman and Diu',
+    'Delhi',
+    'Jammu and Kashmir',
+    'Ladakh',
+    'Lakshadweep',
+    'Puducherry',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -66,7 +116,7 @@ class _CreateCustomerApplicationScreenState
 
     // Set default values
     _countryController.text = 'India';
-    _stateController.text = 'Andhra Pradesh';
+    _selectedState = 'Andhra Pradesh';
   }
 
   @override
@@ -77,7 +127,6 @@ class _CreateCustomerApplicationScreenState
     _phoneController.dispose();
     _addressController.dispose();
     _cityController.dispose();
-    _stateController.dispose();
     _zipCodeController.dispose();
     _countryController.dispose();
     _estimatedKwController.dispose();
@@ -92,9 +141,32 @@ class _CreateCustomerApplicationScreenState
   Future<void> _loadCurrentUser() async {
     try {
       _currentUser = await _authService.getCurrentUser();
+      if (_currentUser != null) {
+        await _loadOffices();
+      }
       setState(() {});
     } catch (e) {
       _showMessage('Error loading user data: $e');
+    }
+  }
+
+  Future<void> _loadOffices() async {
+    setState(() => _isLoadingOffices = true);
+    try {
+      _availableOffices = await _officeService.getAllOffices();
+      
+      // Set default office selection based on user role
+      if (_currentUser!.role == UserRole.director) {
+        // Directors can choose any office, no default selection
+        _selectedOfficeId = null;
+      } else {
+        // For managers and employees, default to their assigned office but allow change
+        _selectedOfficeId = _currentUser!.officeId;
+      }
+    } catch (e) {
+      _showMessage('Error loading offices: $e');
+    } finally {
+      setState(() => _isLoadingOffices = false);
     }
   }
 
@@ -206,15 +278,30 @@ class _CreateCustomerApplicationScreenState
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: TextFormField(
-                  controller: _stateController,
+                child: DropdownButtonFormField<String>(
+                  value: _selectedState,
                   decoration: const InputDecoration(
                     labelText: 'State *',
                     border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.location_city),
                   ),
+                  items: _indianStates.map((String state) {
+                    return DropdownMenuItem<String>(
+                      value: state,
+                      child: Text(
+                        state,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _selectedState = newValue!;
+                    });
+                  },
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter state';
+                      return 'Please select state';
                     }
                     return null;
                   },
@@ -254,6 +341,51 @@ class _CreateCustomerApplicationScreenState
               ),
             ],
           ),
+          const SizedBox(height: 20),
+
+          // Office Selection Section
+          Text(
+            'Office Assignment',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+
+          if (_isLoadingOffices)
+            const Center(child: CircularProgressIndicator())
+          else
+            DropdownButtonFormField<String>(
+              value: _selectedOfficeId,
+              decoration: InputDecoration(
+                labelText: 'Assign to Office *',
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.business),
+                helperText: _currentUser?.role == UserRole.director
+                    ? 'Select which office will handle this customer'
+                    : 'Office assignment (can be changed if needed)',
+              ),
+              items: _availableOffices.map((office) {
+                return DropdownMenuItem<String>(
+                  value: office.id,
+                  child: Text(
+                    office.name,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedOfficeId = value;
+                });
+              },
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please select an office';
+                }
+                return null;
+              },
+            ),
         ],
       ),
     );
@@ -672,25 +804,12 @@ class _CreateCustomerApplicationScreenState
       return;
     }
 
-    // Check if user has office assignment (directors might not have office_id)
-    String? targetOfficeId;
-    if (_currentUser!.role == UserRole.director) {
-      // For directors, we need to get the office from somewhere
-      // For now, let's show an error since directors should create applications through office selection
-      _showMessage(
-        'Directors should create applications through the customer management screen',
-      );
+    // Use the selected office ID from the dropdown
+    if (_selectedOfficeId == null || _selectedOfficeId!.isEmpty) {
+      _showMessage('Please select an office for this customer');
       return;
-    } else {
-      // For managers and employees, use their assigned office
-      if (_currentUser!.officeId == null) {
-        _showMessage(
-          'Error: User is not assigned to any office. Please contact administrator.',
-        );
-        return;
-      }
-      targetOfficeId = _currentUser!.officeId!;
     }
+    String targetOfficeId = _selectedOfficeId!;
 
     setState(() => _isLoading = true);
 
@@ -719,7 +838,7 @@ class _CreateCustomerApplicationScreenState
         phoneNumber: _phoneController.text.trim(),
         address: _addressController.text.trim(),
         city: _cityController.text.trim(),
-        state: _stateController.text.trim(),
+        state: _selectedState,
         zipCode: _zipCodeController.text.trim().isEmpty
             ? null
             : _zipCodeController.text.trim(),
@@ -780,8 +899,10 @@ class _CreateCustomerApplicationScreenState
             _phoneController.text.trim().isNotEmpty &&
             _addressController.text.trim().isNotEmpty &&
             _cityController.text.trim().isNotEmpty &&
-            _stateController.text.trim().isNotEmpty &&
-            _countryController.text.trim().isNotEmpty;
+            _selectedState.isNotEmpty &&
+            _countryController.text.trim().isNotEmpty &&
+            _selectedOfficeId != null &&
+            _selectedOfficeId!.isNotEmpty;
       case 1: // Project Details
         return _estimatedKwController.text.trim().isNotEmpty &&
             _serviceNumberController.text.trim().isNotEmpty;
@@ -811,11 +932,14 @@ class _CreateCustomerApplicationScreenState
     if (_cityController.text.trim().isEmpty) {
       missingFields.add('City');
     }
-    if (_stateController.text.trim().isEmpty) {
+    if (_selectedState.isEmpty) {
       missingFields.add('State');
     }
     if (_countryController.text.trim().isEmpty) {
       missingFields.add('Country');
+    }
+    if (_selectedOfficeId == null || _selectedOfficeId!.isEmpty) {
+      missingFields.add('Office Assignment');
     }
 
     // Project Details validation
@@ -908,7 +1032,7 @@ class _CreateCustomerApplicationScreenState
                               switch (_tabController.index) {
                                 case 0:
                                   message =
-                                      'Please fill in all required customer information fields';
+                                      'Please fill in all required customer information fields including office assignment';
                                   break;
                                 case 1:
                                   message =

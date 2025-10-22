@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
+import '../services/session_service.dart';
+import '../services/notification_service.dart';
+import '../services/location_service.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/ui_components.dart';
+import '../widgets/biometric_verification_dialog.dart';
 import '../theme/app_theme.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -17,10 +21,13 @@ class _AuthScreenState extends State<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
+  final _sessionService = SessionService();
+  final _notificationService = NotificationService();
+  final _locationService = LocationService();
+
   bool _isLoading = false;
-  bool _biometricAvailable = false;
-  bool _hasStoredCredentials = false;
   bool _obscurePassword = true;
+  bool _isCheckingSession = true;
 
   @override
   void initState() {
@@ -29,10 +36,16 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _initializeAuth() async {
+    setState(() {
+      _isCheckingSession = true;
+    });
+
     await _testConnection();
-    await _checkBiometricAvailability();
-    await _checkStoredCredentials();
-    await _tryAutoLogin();
+    await _checkExistingSession();
+
+    setState(() {
+      _isCheckingSession = false;
+    });
   }
 
   Future<void> _testConnection() async {
@@ -44,70 +57,137 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  Future<void> _checkBiometricAvailability() async {
-    final available = await _authService.isBiometricAvailable();
-    setState(() {
-      _biometricAvailable = available;
-    });
-  }
+  /// Check if user has valid session (within 24 hours)
+  Future<void> _checkExistingSession() async {
+    try {
+      print('Checking existing session...');
+      final isSessionValid = await _sessionService.isSessionValid();
 
-  Future<void> _checkStoredCredentials() async {
-    final hasCredentials = await _authService.hasStoredCredentials();
-    setState(() {
-      _hasStoredCredentials = hasCredentials;
-    });
-  }
-
-  Future<void> _tryAutoLogin() async {
-    print('Checking auto-login conditions...');
-    print('Has stored credentials: $_hasStoredCredentials');
-    print('Biometric available: $_biometricAvailable');
-
-    if (_hasStoredCredentials && _biometricAvailable) {
-      final isEnabled = await _authService.isBiometricEnabled();
-      print('Biometric enabled: $isEnabled');
-
-      if (isEnabled) {
-        print('Attempting auto-login with biometric...');
-        // Small delay to ensure UI is ready
-        await Future.delayed(const Duration(milliseconds: 500));
-        await _handleBiometricLogin();
-      } else {
-        print('Biometric not enabled, skipping auto-login');
+      if (!isSessionValid) {
+        print('No valid session found');
+        return;
       }
-    } else {
-      print('Auto-login conditions not met');
+
+      print('Valid session found - checking biometric requirement');
+
+      // Check if biometric is enabled for session re-authentication
+      final isBiometricEnabled = await _sessionService
+          .isBiometricEnabledForSession();
+
+      if (!isBiometricEnabled) {
+        print(
+          'Biometric not enabled for session - require password re-authentication',
+        );
+        print('Clearing session to enforce login');
+        await _sessionService.clearSession();
+        await _authService.signOut();
+        _showMessage('Please login to continue');
+        return;
+      }
+
+      // Check if biometric is available on device
+      final isBiometricAvailable = await _authService.isBiometricAvailable();
+
+      if (!isBiometricAvailable) {
+        print(
+          'Biometric not available on device - require password re-authentication',
+        );
+        print('Clearing session to enforce login');
+        await _sessionService.clearSession();
+        await _authService.signOut();
+        _showMessage('Please login to continue');
+        return;
+      }
+
+      // Show biometric verification dialog
+      print('Showing biometric verification dialog');
+      if (mounted) {
+        final verified = await BiometricVerificationDialog.show(
+          context,
+          onFallbackToPassword: () async {
+            // User chose to use password - clear session and show login
+            print('User chose to use password - clearing session');
+            await _sessionService.clearSession();
+            await _authService.signOut();
+            _showMessage('Please login with your password');
+          },
+        );
+
+        if (verified) {
+          print('Biometric verification successful');
+          await _continueToUserDashboard();
+        } else {
+          print(
+            'Biometric verification failed or cancelled - clearing session',
+          );
+          await _sessionService.clearSession();
+          await _authService.signOut();
+        }
+      }
+    } catch (e) {
+      print('Error checking existing session: $e');
     }
   }
 
-  Future<void> _handleBiometricLogin() async {
-    print('Biometric login button pressed');
-
-    setState(() {
-      _isLoading = true;
-    });
-
+  /// Continue to user dashboard without login
+  Future<void> _continueToUserDashboard() async {
     try {
-      print('Calling auth service biometric login...');
-      final user = await _authService.signInWithBiometric();
-      print('Biometric login result: ${user?.email}');
+      final user = await _authService.getCurrentUser();
 
-      if (user != null) {
-        print('Biometric login successful, navigating to dashboard...');
-        await _navigateToUserDashboard(user);
-      } else {
-        print('Biometric login failed - no user returned');
-        _showMessage(
-          'Biometric authentication failed. Please try manual login.',
+      if (user == null) {
+        print('No user found - clearing session');
+        await _sessionService.clearSession();
+        await _authService.signOut();
+        _showMessage('User profile not found. Please login again.');
+        return;
+      }
+
+      // Check if user can login (active AND approved)
+      print(
+        'Checking user status: ${user.status.name}, approval: ${user.approvalStatus.name}',
+      );
+
+      if (!_authService.canUserLogin(user)) {
+        print(
+          'User cannot login - status: ${user.status.name}, approval: ${user.approvalStatus.name}',
         );
+        await _sessionService.clearSession();
+        await _authService.signOut();
+
+        // Check specific reasons
+        if (_authService.needsApproval(user.approvalStatus)) {
+          _showMessage(
+            'Your account is pending approval. Please contact your administrator.',
+          );
+        } else if (_authService.isRejected(user.approvalStatus)) {
+          _showMessage(
+            'Your account has been rejected. Please contact your administrator.',
+          );
+        } else if (!_authService.isUserActive(user.status)) {
+          _showMessage(
+            'Your account is inactive. Please contact your administrator.',
+          );
+        } else {
+          _showMessage('Access denied. Please contact your administrator.');
+        }
+        return;
+      }
+
+      print('User is active and approved - continuing to dashboard');
+
+      // Update activity time
+      await _sessionService.updateActivity();
+
+      // Navigate to dashboard
+      final route = _authService.getRedirectRoute(user);
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, route);
       }
     } catch (e) {
-      print('Biometric login exception: $e');
-      _showMessage('Biometric authentication failed. Please try again.');
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      print('Error continuing to dashboard: $e');
+      await _sessionService.clearSession();
+      await _authService.signOut();
+      _showMessage('An error occurred. Please login again.');
     }
   }
 
@@ -129,26 +209,44 @@ class _AuthScreenState extends State<AuthScreen> {
       );
 
       if (user != null) {
-        // Check if user is active
-        if (!_authService.isUserActive(user.status)) {
-          if (_authService.needsApproval(user.status)) {
+        // Check if user can login (active AND approved)
+        if (!_authService.canUserLogin(user)) {
+          // Check specific reasons
+          if (_authService.needsApproval(user.approvalStatus)) {
             _showMessage(
               'Your account is pending approval. Please contact your administrator.',
             );
             await _authService.signOut();
             return;
-          } else {
+          } else if (_authService.isRejected(user.approvalStatus)) {
+            _showMessage(
+              'Your account has been rejected. Please contact your administrator.',
+            );
+            await _authService.signOut();
+            return;
+          } else if (!_authService.isUserActive(user.status)) {
             _showMessage(
               'Your account is inactive. Please contact your administrator.',
             );
             await _authService.signOut();
             return;
+          } else {
+            _showMessage('Access denied. Please contact your administrator.');
+            await _authService.signOut();
+            return;
           }
         }
 
-        // Check if current credentials differ from stored biometric credentials
-        await _checkAndUpdateBiometricCredentials();
+        // Start session
+        await _sessionService.startSession(user.id);
 
+        // Check and request permissions
+        await _checkAndRequestPermissions();
+
+        // Show biometric setup dialog
+        await _showBiometricSetupDialog();
+
+        // Navigate to dashboard
         await _navigateToUserDashboard(user);
       }
     } on AuthException catch (e) {
@@ -188,122 +286,92 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  Future<void> _checkAndUpdateBiometricCredentials() async {
-    // Only check if biometric is available and we have stored credentials
-    if (!_biometricAvailable || !_hasStoredCredentials) {
-      // If no stored credentials but biometric is available, offer to enable
-      if (_biometricAvailable && !_hasStoredCredentials) {
-        await _showBiometricEnableDialog();
-      }
-      return;
-    }
-
+  /// Check and request notification and location permissions
+  Future<void> _checkAndRequestPermissions() async {
     try {
-      // Get stored email to compare with current login
-      final storedEmail = await _authService.getStoredBiometricEmail();
-      final currentEmail = _emailController.text.trim();
+      print('Checking permissions...');
 
-      print('Stored email: $storedEmail, Current email: $currentEmail');
+      // Check notification permissions
+      await _notificationService.initialize();
+      final notificationsEnabled = await _notificationService
+          .areNotificationsEnabled();
 
-      // If emails are different, ask user to update biometric credentials
-      if (storedEmail != null && storedEmail != currentEmail) {
-        await _showBiometricUpdateDialog();
-      } else if (storedEmail == null) {
-        // If we have stored credentials but no email, something is wrong
-        await _showBiometricEnableDialog();
+      if (!notificationsEnabled) {
+        if (mounted) {
+          await _showPermissionDialog(
+            title: 'Enable Notifications',
+            message:
+                'This app needs notification permission to send attendance reminders and important updates.',
+            icon: Icons.notifications_active,
+            onEnable: () async {
+              // Permissions are requested during initialize()
+              print('Notification permission requested');
+            },
+          );
+        }
       }
-    } catch (e) {
-      print('Error checking biometric credentials: $e');
-      // If there's an error, just offer to enable biometric again
-      await _showBiometricEnableDialog();
-    }
-  }
 
-  Future<void> _showBiometricUpdateDialog() async {
-    return showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Update Biometric Authentication'),
-        content: const Text(
-          'Different credentials detected. Would you like to update your biometric authentication to use the current credentials?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Keep Current'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                print('Updating biometric with new credentials...');
-                print('New Email: ${_emailController.text.trim()}');
-                print(
-                  'New Password length: ${_passwordController.text.trim().length}',
-                );
+      // Check location permissions
+      final locationPermission = await _locationService.hasLocationPermission();
 
-                // First clear old credentials
-                await _authService.disableBiometric();
-
-                // Then store new credentials
-                await _authService.enableBiometricWithCredentials(
-                  _emailController.text.trim(),
-                  _passwordController.text.trim(),
-                );
-                await _checkStoredCredentials();
-
-                print('Biometric credentials updated successfully');
-                Navigator.of(context).pop();
-                _showMessage(
-                  'Biometric authentication updated with new credentials!',
-                );
-              } catch (e) {
-                print('Error updating biometric: $e');
-                Navigator.of(context).pop();
-                _showMessage('Failed to update biometric authentication.');
+      if (!locationPermission) {
+        if (mounted) {
+          await _showPermissionDialog(
+            title: 'Enable Location',
+            message:
+                'This app needs location permission to verify your attendance check-in location.',
+            icon: Icons.location_on,
+            onEnable: () async {
+              final granted = await _locationService
+                  .requestLocationPermission();
+              if (granted) {
+                print('Location permission granted');
+              } else {
+                print('Location permission denied');
               }
             },
-            child: const Text('Update'),
-          ),
-        ],
-      ),
-    );
+          );
+        }
+      }
+
+      // Send test notification to confirm it's working
+      if (notificationsEnabled && mounted) {
+        await _sendTestNotificationAndConfirm();
+      }
+    } catch (e) {
+      print('Error checking permissions: $e');
+    }
   }
 
-  Future<void> _showBiometricEnableDialog() async {
+  /// Show permission request dialog
+  Future<void> _showPermissionDialog({
+    required String title,
+    required String message,
+    required IconData icon,
+    required Future<void> Function() onEnable,
+  }) async {
     return showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Enable Biometric Authentication'),
-        content: const Text(
-          'Would you like to enable biometric authentication for faster login?',
+        title: Row(
+          children: [
+            Icon(icon, color: Theme.of(context).primaryColor),
+            const SizedBox(width: 12),
+            Text(title),
+          ],
         ),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Not Now'),
+            child: const Text('Skip'),
           ),
           ElevatedButton(
             onPressed: () async {
-              try {
-                print('Enabling biometric with credentials...');
-                print('Email: ${_emailController.text.trim()}');
-                print(
-                  'Password length: ${_passwordController.text.trim().length}',
-                );
-
-                await _authService.enableBiometricWithCredentials(
-                  _emailController.text.trim(),
-                  _passwordController.text.trim(),
-                );
-                await _checkStoredCredentials();
-
-                print('Biometric enabled successfully');
+              await onEnable();
+              if (mounted) {
                 Navigator.of(context).pop();
-                _showMessage('Biometric authentication enabled successfully!');
-              } catch (e) {
-                print('Error enabling biometric: $e');
-                Navigator.of(context).pop();
-                _showMessage('Failed to enable biometric authentication.');
               }
             },
             child: const Text('Enable'),
@@ -313,15 +381,137 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
+  /// Send test notification and ask user to confirm
+  Future<void> _sendTestNotificationAndConfirm() async {
+    try {
+      // Send test notification
+      await _notificationService.showTestNotification();
+
+      if (!mounted) return;
+
+      // Ask user to confirm they received it
+      final confirmed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.notification_important, color: Colors.blue),
+              SizedBox(width: 12),
+              Text('Test Notification'),
+            ],
+          ),
+          content: const Text(
+            'We just sent you a test notification. Did you receive it?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('No, I didn\'t receive it'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Yes, I received it'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == false && mounted) {
+        // User didn't receive the notification
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Notification Issue'),
+            content: const Text(
+              'Please check your device notification settings and ensure notifications are enabled for this app.',
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error sending test notification: $e');
+    }
+  }
+
+  /// Show biometric setup dialog after login
+  Future<void> _showBiometricSetupDialog() async {
+    try {
+      // Check if biometric is available
+      final isBiometricAvailable = await _authService.isBiometricAvailable();
+
+      if (!isBiometricAvailable) {
+        print('Biometric not available on device');
+        return;
+      }
+
+      // Check if already enabled
+      final alreadyEnabled = await _sessionService
+          .isBiometricEnabledForSession();
+
+      if (alreadyEnabled) {
+        print('Biometric already enabled for session');
+        return;
+      }
+
+      if (!mounted) return;
+
+      // Ask user if they want to enable biometric
+      final enable = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.fingerprint, color: Colors.blue, size: 32),
+              SizedBox(width: 12),
+              Text('Enable Biometric'),
+            ],
+          ),
+          content: const Text(
+            'Would you like to enable biometric authentication for faster access?\n\n'
+            'When enabled, you\'ll be able to quickly verify your identity using fingerprint or face recognition after 24 hours of inactivity.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Not Now'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Enable'),
+            ),
+          ],
+        ),
+      );
+
+      if (enable == true) {
+        await _sessionService.enableBiometricForSession();
+        _showMessage('Biometric authentication enabled!');
+      }
+    } catch (e) {
+      print('Error showing biometric setup dialog: $e');
+    }
+  }
+
   Future<void> _navigateToUserDashboard(user) async {
     final route = _authService.getRedirectRoute(user);
-    Navigator.pushReplacementNamed(context, route);
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, route);
+    }
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
+      );
+    }
   }
 
   Future<void> _showForgotPasswordDialog() async {
@@ -439,6 +629,21 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingSession) {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Checking session...'),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -584,27 +789,6 @@ class _AuthScreenState extends State<AuthScreen> {
                               ),
                             ),
                           ),
-
-                          // Biometric login button
-                          if (_biometricAvailable && _hasStoredCredentials) ...[
-                            const SizedBox(height: 16),
-                            OutlinedButton.icon(
-                              onPressed: _isLoading
-                                  ? null
-                                  : _handleBiometricLogin,
-                              icon: const Icon(Icons.fingerprint),
-                              label: const Text('Login with Biometric'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.blue,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ],
 
                           const SizedBox(height: 16),
 

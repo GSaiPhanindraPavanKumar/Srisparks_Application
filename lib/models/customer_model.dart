@@ -82,7 +82,6 @@ class CustomerModel {
   final DateTime? materialPlannedDate; // Date when materials were planned
   final String? materialConfirmedById; // User who confirmed the allocation
   final DateTime? materialConfirmedDate; // Date when allocation was confirmed
-  final DateTime? materialDeliveredDate; // Date when materials were delivered
   final String?
   materialAllocationHistory; // JSON string containing allocation history
 
@@ -185,7 +184,6 @@ class CustomerModel {
     this.materialPlannedDate,
     this.materialConfirmedById,
     this.materialConfirmedDate,
-    this.materialDeliveredDate,
     this.materialAllocationHistory,
 
     // Installation Project Reference
@@ -319,9 +317,6 @@ class CustomerModel {
       materialConfirmedDate: json['material_confirmed_date'] != null
           ? DateTime.parse(json['material_confirmed_date'])
           : null,
-      materialDeliveredDate: json['material_delivered_date'] != null
-          ? DateTime.parse(json['material_delivered_date'])
-          : null,
       materialAllocationHistory: _parseJsonField(
         json['material_allocation_history'],
       ),
@@ -338,23 +333,25 @@ class CustomerModel {
       dateOfMeter: json['date_of_meter'] != null
           ? DateTime.parse(json['date_of_meter'])
           : null,
-      meterConnectionCompletedDate:
-          json['meter_connection_completed_date'] != null
-          ? DateTime.parse(json['meter_connection_completed_date'])
+      meterConnectionCompletedDate: json['meter_updated_time'] != null
+          ? DateTime.parse(json['meter_updated_time'])
           : null,
 
       // Inverter Turn-on Phase Fields
       dateOfInverter: json['date_of_inverter'] != null
           ? DateTime.parse(json['date_of_inverter'])
           : null,
-      inverterTurnonCompletedDate:
-          json['inverter_turnon_completed_date'] != null
-          ? DateTime.parse(json['inverter_turnon_completed_date'])
+      inverterTurnonCompletedDate: json['inverter_updated_time'] != null
+          ? DateTime.parse(json['inverter_updated_time'])
           : null,
 
       // Project Completion Fields
-      projectCompletedDate: json['project_completed_date'] != null
-          ? DateTime.parse(json['project_completed_date'])
+      // Note: project_completed_date column doesn't exist in DB schema
+      // Using phase_updated_date or computed from current_phase = 'completed'
+      projectCompletedDate:
+          json['phase_updated_date'] != null &&
+              json['current_phase'] == 'completed'
+          ? DateTime.parse(json['phase_updated_date'])
           : null,
     );
   }
@@ -434,7 +431,6 @@ class CustomerModel {
       'material_planned_date': materialPlannedDate?.toIso8601String(),
       'material_confirmed_by_id': materialConfirmedById,
       'material_confirmed_date': materialConfirmedDate?.toIso8601String(),
-      'material_delivered_date': materialDeliveredDate?.toIso8601String(),
       'material_allocation_history': materialAllocationHistory,
 
       // Installation Project Reference
@@ -446,16 +442,18 @@ class CustomerModel {
 
       // Meter Connection Phase Fields
       'date_of_meter': dateOfMeter?.toIso8601String(),
-      'meter_connection_completed_date': meterConnectionCompletedDate
-          ?.toIso8601String(),
+      'meter_updated_time': meterConnectionCompletedDate?.toIso8601String(),
 
       // Inverter Turn-on Phase Fields
       'date_of_inverter': dateOfInverter?.toIso8601String(),
-      'inverter_turnon_completed_date': inverterTurnonCompletedDate
-          ?.toIso8601String(),
+      'inverter_updated_time': inverterTurnonCompletedDate?.toIso8601String(),
 
       // Project Completion Fields
-      'project_completed_date': projectCompletedDate?.toIso8601String(),
+      // Note: Using phase_updated_date for completion tracking
+      'phase_updated_date':
+          (currentPhase == 'completed' && projectCompletedDate != null)
+          ? projectCompletedDate?.toIso8601String()
+          : null,
     };
   }
 

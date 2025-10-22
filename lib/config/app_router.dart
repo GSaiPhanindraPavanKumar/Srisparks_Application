@@ -21,8 +21,10 @@ import '../screens/shared/my_work_screen.dart';
 import '../screens/manager/manage_work_screen.dart';
 import '../screens/manager/stock_inventory_screen.dart';
 import '../screens/director/director_stock_management_screen.dart';
+import '../screens/lead/lead_stock_management_screen.dart';
 import '../screens/director/director_attendance_management_screen.dart';
 import '../screens/shared/attendance_screen.dart';
+import '../screens/lead/team_attendance_screen.dart';
 import '../screens/shared/customer_applications_screen.dart';
 import '../screens/shared/create_customer_application_screen.dart';
 import '../screens/shared/amount_phase_screen.dart';
@@ -34,7 +36,6 @@ import '../screens/employee/employee_unified_dashboard.dart';
 import '../screens/employee/employee_customer_dashboard.dart';
 import '../debug_amount_phase.dart';
 import '../screens/shared/help_screen.dart';
-import '../auth/auth_screen.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 
@@ -64,9 +65,11 @@ class AppRoutes {
   static const String manageWork = '/manage-work';
   static const String stockInventory = '/stock-inventory';
   static const String directorStockManagement = '/director/stock-management';
+  static const String leadStockManagement = '/lead-stock-management';
   static const String directorAttendanceManagement =
       '/director/attendance-management';
   static const String attendance = '/attendance';
+  static const String teamAttendance = '/team-attendance';
   static const String customerApplications = '/customer-applications';
   static const String createCustomerApplication =
       '/create-customer-application';
@@ -281,6 +284,16 @@ class AppRouter {
           settings: settings,
         );
 
+      case AppRoutes.leadStockManagement:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: LeadStockManagementScreen(),
+            requiredRole: UserRole.employee,
+            requiresLead: true,
+          ),
+          settings: settings,
+        );
+
       case AppRoutes.directorAttendanceManagement:
         return MaterialPageRoute(
           builder: (_) => const RouteGuard(
@@ -295,6 +308,16 @@ class AppRouter {
           builder: (_) => const RouteGuard(
             child: AttendanceScreen(),
             // Allow all authenticated users to access attendance
+          ),
+          settings: settings,
+        );
+
+      case AppRoutes.teamAttendance:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(
+            child: TeamAttendanceScreen(),
+            requiresManagementRole:
+                true, // Leads and Managers can view team attendance
           ),
           settings: settings,
         );

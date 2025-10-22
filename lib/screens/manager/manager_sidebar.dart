@@ -76,8 +76,13 @@ class ManagerSidebar extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.access_time),
-            title: const Text('Attendance'),
+            title: const Text('My Attendance'),
             onTap: () => Navigator.pushNamed(context, AppRoutes.attendance),
+          ),
+          ListTile(
+            leading: const Icon(Icons.people_alt),
+            title: const Text('Team Attendance'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.teamAttendance),
           ),
           ListTile(
             leading: const Icon(Icons.analytics),

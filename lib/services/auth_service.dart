@@ -374,14 +374,25 @@ class AuthService {
     }
   }
 
-  // Validate user status
+  // Validate user status (must be active)
   bool isUserActive(UserStatus status) {
     return status == UserStatus.active;
   }
 
-  // Check if user needs approval
-  bool needsApproval(UserStatus status) {
-    return status == UserStatus.inactive;
+  // Check if user needs approval (approval_status = pending)
+  bool needsApproval(ApprovalStatus approvalStatus) {
+    return approvalStatus == ApprovalStatus.pending;
+  }
+
+  // Check if user is rejected (approval_status = rejected)
+  bool isRejected(ApprovalStatus approvalStatus) {
+    return approvalStatus == ApprovalStatus.rejected;
+  }
+
+  // Check if user can login (must be active AND approved)
+  bool canUserLogin(UserModel user) {
+    return user.status == UserStatus.active &&
+        user.approvalStatus == ApprovalStatus.approved;
   }
 
   // Private method to log activities

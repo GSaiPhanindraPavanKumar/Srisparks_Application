@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/attendance_model.dart';
+import '../../models/attendance_update_model.dart';
 import '../../services/attendance_service.dart';
 import '../../services/auth_service.dart';
 import '../../models/user_model.dart';
@@ -20,9 +21,11 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   late TabController _tabController;
   AttendanceModel? _todayAttendance;
   List<AttendanceModel> _attendanceHistory = [];
+  List<AttendanceUpdateModel> _todayUpdates = [];
   Map<String, dynamic> _weeklySummary = {};
   bool _isLoading = true;
   bool _isCheckingInOut = false;
+  bool _isAddingUpdate = false;
   UserModel? _currentUser;
 
   @override
@@ -47,6 +50,13 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       // Load today's attendance
       _todayAttendance = await _attendanceService.getTodayActiveAttendance();
 
+      // Load today's updates if checked in
+      if (_todayAttendance != null) {
+        _todayUpdates = await _attendanceService.getTodayUpdates();
+      } else {
+        _todayUpdates = [];
+      }
+
       // Load attendance history
       _attendanceHistory = await _attendanceService.getAttendanceHistory();
 
@@ -66,6 +76,56 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   }
 
   Future<void> _handleCheckIn() async {
+    // Simple confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Check In'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Are you ready to check in for today?',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, size: 20, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Your location and time will be recorded automatically.',
+                      style: TextStyle(fontSize: 12, color: Colors.blue),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Check In'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     setState(() => _isCheckingInOut = true);
 
     try {
@@ -86,10 +146,95 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   }
 
   Future<void> _handleCheckOut() async {
+    // Show dialog to get checkout summary
+    final summaryController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final summary = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Check Out'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Please provide a summary of your work today:',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: summaryController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText:
+                      'Example: Completed client meeting, finished design mockups, reviewed pull requests...',
+                  border: OutlineInputBorder(),
+                  filled: true,
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Work summary is required';
+                  }
+                  if (value.trim().length < 10) {
+                    return 'Please provide a more detailed summary (at least 10 characters)';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 20, color: Colors.red),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Your checkout time and location will be recorded.',
+                        style: TextStyle(fontSize: 12, color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(context, summaryController.text.trim());
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Check Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (summary == null || summary.isEmpty) return;
+
     setState(() => _isCheckingInOut = true);
 
     try {
-      await _attendanceService.checkOut();
+      await _attendanceService.checkOut(summary: summary);
 
       setState(() {
         _todayAttendance = null; // Clear active attendance
@@ -101,6 +246,100 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       _showMessage('Error checking out: $e');
     } finally {
       setState(() => _isCheckingInOut = false);
+    }
+  }
+
+  Future<void> _handleAddUpdate() async {
+    // Check if user is checked in
+    if (_todayAttendance == null) {
+      _showMessage('Please check in first to add updates');
+      return;
+    }
+
+    // Show dialog to get update text
+    final updateController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Status Update'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'What are you working on right now?',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: updateController,
+              decoration: const InputDecoration(
+                hintText: 'e.g., Meeting with client, visiting site...',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.update),
+              ),
+              maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
+              autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Time and location will be recorded automatically',
+                      style: TextStyle(fontSize: 11, color: Colors.blue),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Add Update'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final updateText = updateController.text.trim();
+    if (updateText.isEmpty) {
+      _showMessage('Please enter an update');
+      return;
+    }
+
+    setState(() => _isAddingUpdate = true);
+
+    try {
+      await _attendanceService.addAttendanceUpdate(updateText);
+
+      // Reload today's updates
+      _todayUpdates = await _attendanceService.getTodayUpdates();
+      setState(() {});
+
+      _showMessage('Update added successfully!');
+    } catch (e) {
+      _showMessage('Error adding update: $e');
+    } finally {
+      setState(() => _isAddingUpdate = false);
     }
   }
 
@@ -165,6 +404,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
@@ -179,6 +419,24 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                   style: TextStyle(
                                     color: Colors.green.shade700,
                                     fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  color: Colors.green.shade700,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Location: ${_todayAttendance!.checkInLatitude.toStringAsFixed(6)}, ${_todayAttendance!.checkInLongitude.toStringAsFixed(6)}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.green.shade700,
                                   ),
                                 ),
                               ],
@@ -248,7 +506,54 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
             const SizedBox(height: 20),
 
-            // Weekly Summary Card
+            // Add Update Button (only show if checked in)
+            if (_todayAttendance != null) ...[
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: _isAddingUpdate ? null : _handleAddUpdate,
+                  icon: _isAddingUpdate
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.add_circle_outline),
+                  label: const Text('Add Status Update'),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.blue.shade300),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+
+            // Today's Updates Section
+            if (_todayAttendance != null && _todayUpdates.isNotEmpty) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Today\'s Updates (${_todayUpdates.length})',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _loadData,
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('Refresh'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ..._todayUpdates.map((update) => _buildUpdateCard(update)),
+              const SizedBox(height: 20),
+            ], // Weekly Summary Card
             if (_weeklySummary.isNotEmpty) ...[
               Text(
                 'This Week Summary',
@@ -339,6 +644,54 @@ class _AttendanceScreenState extends State<AttendanceScreen>
           textAlign: TextAlign.center,
         ),
       ],
+    );
+  }
+
+  Widget _buildUpdateCard(AttendanceUpdateModel update) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.update, size: 20, color: Colors.blue.shade700),
+                const SizedBox(width: 8),
+                Text(
+                  DateFormat('hh:mm a').format(update.updateTime),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade700,
+                    fontSize: 14,
+                  ),
+                ),
+                const Spacer(),
+                Icon(Icons.location_on, size: 14, color: Colors.grey.shade600),
+                const SizedBox(width: 4),
+                Text(
+                  '${update.latitude.toStringAsFixed(4)}, ${update.longitude.toStringAsFixed(4)}',
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                update.updateText,
+                style: const TextStyle(fontSize: 14, height: 1.4),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

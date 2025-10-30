@@ -10,7 +10,9 @@ class AttendanceModel {
   final double? checkOutLongitude;
   final DateTime attendanceDate;
   final String status; // 'checked_in', 'checked_out'
-  final String? notes;
+  final String? summary;
+  final String? checkInUpdate; // User update/status during check-in
+  final String? checkOutUpdate; // User update/status during check-out
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -26,7 +28,9 @@ class AttendanceModel {
     this.checkOutLongitude,
     required this.attendanceDate,
     required this.status,
-    this.notes,
+    this.summary,
+    this.checkInUpdate,
+    this.checkOutUpdate,
     required this.createdAt,
     this.updatedAt,
   });
@@ -46,7 +50,9 @@ class AttendanceModel {
       checkOutLongitude: json['check_out_longitude']?.toDouble(),
       attendanceDate: DateTime.parse(json['attendance_date']),
       status: json['status'] ?? 'checked_in',
-      notes: json['notes'],
+      summary: json['summary'],
+      checkInUpdate: json['check_in_update'],
+      checkOutUpdate: json['check_out_update'],
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'])
@@ -70,7 +76,9 @@ class AttendanceModel {
         'T',
       )[0], // Just the date part
       'status': status,
-      if (notes != null) 'notes': notes,
+      if (summary != null) 'summary': summary,
+      if (checkInUpdate != null) 'check_in_update': checkInUpdate,
+      if (checkOutUpdate != null) 'check_out_update': checkOutUpdate,
       'created_at': createdAt.toIso8601String(),
       if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
     };
@@ -97,7 +105,9 @@ class AttendanceModel {
     double? checkOutLongitude,
     DateTime? attendanceDate,
     String? status,
-    String? notes,
+    String? summary,
+    String? checkInUpdate,
+    String? checkOutUpdate,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -113,7 +123,9 @@ class AttendanceModel {
       checkOutLongitude: checkOutLongitude ?? this.checkOutLongitude,
       attendanceDate: attendanceDate ?? this.attendanceDate,
       status: status ?? this.status,
-      notes: notes ?? this.notes,
+      summary: summary ?? this.summary,
+      checkInUpdate: checkInUpdate ?? this.checkInUpdate,
+      checkOutUpdate: checkOutUpdate ?? this.checkOutUpdate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

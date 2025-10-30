@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/attendance_model.dart';
+import '../models/attendance_update_model.dart';
 
 class AttendanceService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -82,13 +83,16 @@ class AttendanceService {
   }
 
   // Check in
-  Future<AttendanceModel> checkIn({String? officeId, String? notes}) async {
+  Future<AttendanceModel> checkIn({String? officeId, String? summary}) async {
     try {
       // Check if already checked in today
       final existingAttendance = await getTodayActiveAttendance();
       if (existingAttendance != null) {
         throw Exception('You are already checked in today');
       }
+
+      // Note: We no longer auto-checkout previous days
+      // Database trigger ensures we can check in even if previous days weren't checked out
 
       // Get current location
       final position = await _getCurrentLocation();
@@ -104,7 +108,7 @@ class AttendanceService {
           'T',
         )[0], // Just the date part
         'status': 'checked_in',
-        'notes': notes,
+        'summary': summary,
         'created_at': now.toIso8601String(),
       };
 
@@ -122,7 +126,7 @@ class AttendanceService {
   }
 
   // Check out
-  Future<AttendanceModel> checkOut({String? notes}) async {
+  Future<AttendanceModel> checkOut({String? summary}) async {
     try {
       // Get today's active attendance
       final activeAttendance = await getTodayActiveAttendance();
@@ -140,7 +144,7 @@ class AttendanceService {
         'check_out_latitude': position.latitude,
         'check_out_longitude': position.longitude,
         'status': 'checked_out',
-        'notes': notes ?? activeAttendance.notes,
+        'summary': summary ?? activeAttendance.summary,
         'updated_at': now.toIso8601String(),
       };
 
@@ -558,6 +562,117 @@ class AttendanceService {
         'averageHours': Duration.zero,
         'attendanceRate': 0,
       };
+    }
+  }
+
+  // ==================== ATTENDANCE UPDATES ====================
+
+  // Add an update to today's attendance
+  Future<AttendanceUpdateModel> addAttendanceUpdate(String updateText) async {
+    try {
+      // Get today's active attendance
+      final activeAttendance = await getTodayActiveAttendance();
+      if (activeAttendance == null) {
+        throw Exception('No active attendance found. Please check in first.');
+      }
+
+      // Get current location
+      final position = await _getCurrentLocation();
+
+      final now = DateTime.now();
+      final updateData = {
+        'attendance_id': activeAttendance.id,
+        'user_id': _supabase.auth.currentUser!.id,
+        'update_text': updateText,
+        'update_time': now.toIso8601String(),
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'created_at': now.toIso8601String(),
+      };
+
+      final response = await _supabase
+          .from('attendance_updates')
+          .insert(updateData)
+          .select()
+          .single();
+
+      return AttendanceUpdateModel.fromJson(response);
+    } catch (e) {
+      print('Error adding attendance update: $e');
+      rethrow;
+    }
+  }
+
+  // Get all updates for a specific attendance record
+  Future<List<AttendanceUpdateModel>> getAttendanceUpdates(
+    String attendanceId,
+  ) async {
+    try {
+      final response = await _supabase
+          .from('attendance_updates')
+          .select()
+          .eq('attendance_id', attendanceId)
+          .order('update_time', ascending: true);
+
+      return (response as List<dynamic>)
+          .map<AttendanceUpdateModel>(
+            (update) =>
+                AttendanceUpdateModel.fromJson(update as Map<String, dynamic>),
+          )
+          .toList();
+    } catch (e) {
+      print('Error getting attendance updates: $e');
+      return [];
+    }
+  }
+
+  // Get today's updates
+  Future<List<AttendanceUpdateModel>> getTodayUpdates() async {
+    try {
+      final activeAttendance = await getTodayActiveAttendance();
+      if (activeAttendance == null) {
+        return [];
+      }
+
+      return await getAttendanceUpdates(activeAttendance.id!);
+    } catch (e) {
+      print('Error getting today\'s updates: $e');
+      return [];
+    }
+  }
+
+  // Delete an attendance update
+  Future<void> deleteAttendanceUpdate(String updateId) async {
+    try {
+      await _supabase
+          .from('attendance_updates')
+          .delete()
+          .eq('id', updateId)
+          .eq('user_id', _supabase.auth.currentUser!.id);
+    } catch (e) {
+      print('Error deleting attendance update: $e');
+      rethrow;
+    }
+  }
+
+  // Get attendance with all updates
+  Future<Map<String, dynamic>?> getAttendanceWithUpdates(
+    String attendanceId,
+  ) async {
+    try {
+      final attendanceResponse = await _supabase
+          .from('attendance')
+          .select()
+          .eq('id', attendanceId)
+          .single();
+
+      final attendance = AttendanceModel.fromJson(attendanceResponse);
+      final updates = await getAttendanceUpdates(attendanceId);
+
+      return {'attendance': attendance, 'updates': updates};
+    } catch (e) {
+      print('Error getting attendance with updates: $e');
+      return null;
     }
   }
 }

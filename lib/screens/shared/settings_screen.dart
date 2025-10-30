@@ -337,6 +337,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             });
           },
         ),
+        _buildActionSetting(
+          title: 'Test Notifications',
+          subtitle: 'Check notification status and test reminders',
+          icon: Icons.notifications_active,
+          iconColor: AppTheme.primary,
+          onTap: () {
+            Navigator.pushNamed(context, AppRoutes.notificationTest);
+          },
+        ),
       ],
     );
   }

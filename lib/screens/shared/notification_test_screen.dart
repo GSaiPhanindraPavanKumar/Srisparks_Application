@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/notification_service.dart';
-import '../services/auth_service.dart';
-import '../services/attendance_service.dart';
+import '../../services/notification_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/attendance_service.dart';
 
 class NotificationTestScreen extends StatefulWidget {
   const NotificationTestScreen({super.key});
@@ -20,6 +20,7 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
   bool _isInitialized = false;
   bool _notificationsEnabled = false;
   bool _hasPermission = false;
+  bool _canScheduleExactAlarms = false;
   int _pendingNotificationCount = 0;
   List<String> _pendingNotifications = [];
   String? _userRole;
@@ -48,7 +49,7 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
       final user = await _authService.getCurrentUser();
       if (user != null) {
         _userName = user.fullName;
-        _userRole = user.role;
+        _userRole = user.roleDisplayName; // Use roleDisplayName for display
 
         // 3. Check if user has checked in today
         _hasCheckedInToday = await _attendanceService.hasCheckedInToday(
@@ -60,14 +61,20 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
       _notificationsEnabled = await _notificationService
           .areNotificationsEnabled();
 
-      // 5. Get pending notifications
+      // 5. Check exact alarm permission (Android 12+)
+      _canScheduleExactAlarms = await _notificationService
+          .canScheduleExactAlarms();
+      print('DEBUG: Can schedule exact alarms: $_canScheduleExactAlarms');
+
+      // 6. Get pending notifications
       final pending = await _notificationService.getPendingNotifications();
       _pendingNotificationCount = pending.length;
       _pendingNotifications = pending
           .map((n) => 'ID: ${n.id}, Title: ${n.title}, Body: ${n.body}')
           .toList();
+      print('DEBUG: Pending notifications: $_pendingNotificationCount');
 
-      // 6. Check permission (Android/iOS)
+      // 7. Check permission (Android/iOS)
       _hasPermission = true; // Assume true if we got here
 
       _statusMessage = _buildStatusMessage();
@@ -81,30 +88,44 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
   }
 
   String _buildStatusMessage() {
-    if (_userRole == 'director') {
+    if (_userRole == 'Director') {
       return '✅ Directors do not receive attendance reminders (by design)';
     } else if (!_notificationsEnabled) {
       return '⚠️ Notifications are disabled in settings';
+    } else if (!_canScheduleExactAlarms) {
+      return '❌ Exact alarm permission not granted - tap "Request Exact Alarm Permission"';
     } else if (_hasCheckedInToday) {
       return '✅ Already checked in today - notifications cancelled';
-    } else if (_pendingNotificationCount == 2) {
-      return '✅ Notifications are scheduled and working!';
+    } else if (_pendingNotificationCount >= 2) {
+      return '✅ Notifications are scheduled and working! ($_pendingNotificationCount pending)';
     } else if (_pendingNotificationCount == 0) {
       return '⚠️ No notifications scheduled - tap "Schedule Test"';
     } else {
-      return '⚠️ Unexpected notification count: $_pendingNotificationCount';
+      return '⚠️ Partial notifications scheduled: $_pendingNotificationCount';
     }
   }
 
   Future<void> _testImmediateNotification() async {
+    print('═══════════════════════════════════════════════════════');
+    print('IMMEDIATE TEST: _testImmediateNotification() called');
+    print('═══════════════════════════════════════════════════════');
+
     try {
+      final timestamp = DateFormat('HH:mm:ss').format(DateTime.now());
+      print('IMMEDIATE TEST: Sending notification at $timestamp');
+
       await _notificationService.showImmediateNotification(
         title: '🧪 Test Notification',
-        body:
-            'This is a test notification sent at ${DateFormat('HH:mm:ss').format(DateTime.now())}',
+        body: 'This is a test notification sent at $timestamp',
       );
+
+      print('IMMEDIATE TEST: ✅ Notification sent successfully');
       _showSnackBar('Test notification sent! Check your notification panel.');
-    } catch (e) {
+      print('═══════════════════════════════════════════════════════');
+    } catch (e, stackTrace) {
+      print('IMMEDIATE TEST: ❌ ERROR: $e');
+      print('IMMEDIATE TEST: Stack trace: $stackTrace');
+      print('═══════════════════════════════════════════════════════');
       _showSnackBar('Error: $e');
     }
   }
@@ -116,6 +137,63 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
       _showSnackBar('Reminders scheduled successfully!');
     } catch (e) {
       _showSnackBar('Error scheduling: $e');
+    }
+  }
+
+  Future<void> _scheduleQuickTestReminders() async {
+    print('═══════════════════════════════════════════════════════');
+    print('TEST REMINDERS: _scheduleQuickTestReminders() called');
+    print('═══════════════════════════════════════════════════════');
+
+    try {
+      // Check exact alarm permission first
+      print(
+        'TEST REMINDERS: Can schedule exact alarms: $_canScheduleExactAlarms',
+      );
+
+      if (!_canScheduleExactAlarms) {
+        print('TEST REMINDERS: ❌ Exact alarm permission DENIED');
+        _showSnackBar(
+          '⚠️ Exact alarm permission required! Tap "Request Permission" button below.',
+        );
+        return;
+      }
+
+      print(
+        'TEST REMINDERS: ✅ Permission OK, calling scheduleTestReminders()...',
+      );
+      await _notificationService.scheduleTestReminders();
+
+      print('TEST REMINDERS: ✅ scheduleTestReminders() completed');
+      print('TEST REMINDERS: Refreshing notification status...');
+      await _checkNotificationStatus();
+
+      print(
+        'TEST REMINDERS: Pending after scheduling: $_pendingNotificationCount',
+      );
+      _showSnackBar(
+        'Test reminders scheduled! Close the app and wait.\n+1 min and +2 min from now.',
+      );
+      print('═══════════════════════════════════════════════════════');
+    } catch (e, stackTrace) {
+      print('TEST REMINDERS: ❌ ERROR: $e');
+      print('TEST REMINDERS: Stack trace: $stackTrace');
+      print('═══════════════════════════════════════════════════════');
+      _showSnackBar('Error scheduling test: $e');
+    }
+  }
+
+  Future<void> _requestExactAlarmPermission() async {
+    try {
+      final granted = await _notificationService.requestExactAlarmPermission();
+      await _checkNotificationStatus();
+      if (granted) {
+        _showSnackBar('✅ Exact alarm permission granted!');
+      } else {
+        _showSnackBar('❌ Permission denied. Please enable in system settings.');
+      }
+    } catch (e) {
+      _showSnackBar('Error: $e');
     }
   }
 
@@ -197,13 +275,16 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
     IconData statusIcon;
     Color statusColor;
 
-    if (_userRole == 'director') {
+    if (_userRole == 'Director') {
       statusIcon = Icons.info_outline;
       statusColor = Colors.blue;
     } else if (!_notificationsEnabled) {
       statusIcon = Icons.notifications_off;
       statusColor = Colors.orange;
-    } else if (_pendingNotificationCount == 2) {
+    } else if (!_canScheduleExactAlarms) {
+      statusIcon = Icons.error;
+      statusColor = Colors.red;
+    } else if (_pendingNotificationCount >= 2) {
       statusIcon = Icons.check_circle;
       statusColor = Colors.green;
     } else {
@@ -247,14 +328,10 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
             ),
             const Divider(),
             _buildInfoRow('Name', _userName ?? 'Unknown', Icons.person),
-            _buildInfoRow(
-              'Role',
-              _userRole?.toUpperCase() ?? 'Unknown',
-              Icons.badge,
-            ),
+            _buildInfoRow('User Role', _userRole ?? 'Unknown', Icons.badge),
             _buildInfoRow(
               'Eligible for Reminders',
-              _userRole == 'director' ? '❌ No' : '✅ Yes',
+              _userRole == 'Director' ? '❌ No' : '✅ Yes',
               Icons.notifications_active,
             ),
             _buildInfoRow(
@@ -294,6 +371,11 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
               'System Permission',
               _hasPermission ? '✅ Granted' : '❌ Denied',
               Icons.security,
+            ),
+            _buildInfoRow(
+              'Exact Alarm Permission',
+              _canScheduleExactAlarms ? '✅ Granted' : '❌ Denied',
+              Icons.alarm,
             ),
             _buildInfoRow(
               'Pending Notifications',
@@ -350,8 +432,9 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
               const Divider(),
               const Text(
                 'Expected notifications:\n'
-                '• 9:00 AM: First reminder\n'
-                '• 9:15 AM: Second reminder',
+                '• 9:00 AM: First attendance reminder\n'
+                '• 9:15 AM: Second attendance reminder\n'
+                '• Test reminders appear as +1 min & +2 min (if scheduled)',
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
@@ -412,6 +495,82 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
           ),
         ),
         const SizedBox(height: 8),
+
+        // Schedule Quick Test Reminders (+1 and +2 minutes)
+        ElevatedButton.icon(
+          onPressed: _scheduleQuickTestReminders,
+          icon: const Icon(Icons.timer),
+          label: const Text('Test: Schedule +1 & +2 Min'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.purple,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.purple.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.purple.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.purple, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Tap above, then close the app completely. You\'ll get notifications at +1 and +2 minutes.',
+                  style: TextStyle(fontSize: 12, color: Colors.purple.shade700),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Request Exact Alarm Permission (Android 12+)
+        if (!_canScheduleExactAlarms)
+          Column(
+            children: [
+              ElevatedButton.icon(
+                onPressed: _requestExactAlarmPermission,
+                icon: const Icon(Icons.alarm_add),
+                label: const Text('Request Exact Alarm Permission'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepOrange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.red, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Android 12+ requires exact alarm permission for scheduled notifications. This is CRITICAL for reminders to work!',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.red.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
 
         // Toggle Notifications
         ElevatedButton.icon(

@@ -178,6 +178,28 @@ class _AuthScreenState extends State<AuthScreen> {
       // Update activity time
       await _sessionService.updateActivity();
 
+      // Schedule daily attendance reminders ONLY if not already scheduled
+      // This ensures reminders are set even when using session/biometric login
+      // but prevents unnecessary cancellation and rescheduling
+      try {
+        await _notificationService.initialize();
+
+        // Check if reminders are already scheduled
+        final pending = await _notificationService.getPendingNotifications();
+        final hasReminders = pending.any(
+          (n) => n.id == 100 || n.id == 101,
+        ); // attendance reminder IDs
+
+        if (!hasReminders) {
+          await _notificationService.scheduleDailyAttendanceReminders();
+          print('Attendance reminders scheduled for session login');
+        } else {
+          print('Attendance reminders already exist, skipping schedule');
+        }
+      } catch (e) {
+        print('Error scheduling attendance reminders: $e');
+      }
+
       // Navigate to dashboard
       final route = _authService.getRedirectRoute(user);
       if (mounted) {
@@ -309,6 +331,25 @@ class _AuthScreenState extends State<AuthScreen> {
             },
           );
         }
+      }
+
+      // Schedule daily attendance reminders (9:00 AM and 9:15 AM)
+      // This will check user role and only schedule for managers/employees/leads
+      // Check if reminders already exist to avoid unnecessary rescheduling
+      try {
+        final pending = await _notificationService.getPendingNotifications();
+        final hasReminders = pending.any(
+          (n) => n.id == 100 || n.id == 101,
+        ); // attendance reminder IDs
+
+        if (!hasReminders) {
+          await _notificationService.scheduleDailyAttendanceReminders();
+          print('Attendance reminders scheduled after fresh login');
+        } else {
+          print('Attendance reminders already exist, skipping schedule');
+        }
+      } catch (e) {
+        print('Error scheduling attendance reminders: $e');
       }
 
       // Check location permissions

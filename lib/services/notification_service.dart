@@ -21,6 +21,8 @@ class NotificationService {
   // Notification IDs
   static const int _firstReminderNotificationId = 100;
   static const int _secondReminderNotificationId = 101;
+  static const int _testReminder1NotificationId = 200;
+  static const int _testReminder2NotificationId = 201;
 
   /// Initialize notification service
   Future<void> initialize() async {
@@ -96,6 +98,10 @@ class NotificationService {
   /// Schedule daily attendance reminders
   /// Only for managers, employees, and leads (NOT for directors)
   Future<void> scheduleDailyAttendanceReminders() async {
+    print('═══════════════════════════════════════════════════════');
+    print('NotificationService: scheduleDailyAttendanceReminders() called');
+    print('═══════════════════════════════════════════════════════');
+
     if (!_isInitialized) {
       await initialize();
     }
@@ -104,35 +110,65 @@ class NotificationService {
     try {
       final user = await _authService.getCurrentUser();
       if (user == null) {
-        print('NotificationService: No user found');
+        print('NotificationService: ❌ No user found, cannot schedule');
         return;
       }
 
+      print(
+        'NotificationService: User found - ${user.fullName} (${user.role})',
+      );
+
       if (user.role == 'director') {
         print(
-          'NotificationService: Directors do not receive attendance reminders',
+          'NotificationService: ❌ Directors do not receive attendance reminders',
         );
         await cancelAttendanceReminders(); // Cancel any existing reminders
         return;
       }
 
-      print('NotificationService: Scheduling reminders for ${user.role}');
+      print('NotificationService: ✅ User eligible for reminders');
     } catch (e) {
-      print('NotificationService: Error checking user role: $e');
+      print('NotificationService: ❌ Error checking user role: $e');
       return;
     }
-
-    // Cancel any existing reminders
-    await cancelAttendanceReminders();
 
     // Check if notifications are enabled in user preferences
     final prefs = await SharedPreferences.getInstance();
     final notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
 
     if (!notificationsEnabled) {
-      print('NotificationService: Notifications disabled by user');
+      print('NotificationService: ❌ Notifications disabled by user');
       return;
     }
+    print('NotificationService: ✅ Notifications enabled in preferences');
+
+    // Check if reminders are already scheduled
+    final pending = await getPendingNotifications();
+    print(
+      'NotificationService: Current pending notifications: ${pending.length}',
+    );
+    for (var n in pending) {
+      print('  - ID: ${n.id}, Title: ${n.title}');
+    }
+
+    final hasFirstReminder = pending.any(
+      (n) => n.id == _firstReminderNotificationId,
+    );
+    final hasSecondReminder = pending.any(
+      (n) => n.id == _secondReminderNotificationId,
+    );
+
+    if (hasFirstReminder && hasSecondReminder) {
+      print(
+        'NotificationService: ✅ Both reminders already scheduled, skipping',
+      );
+      print('═══════════════════════════════════════════════════════');
+      return;
+    }
+
+    print('NotificationService: 📅 Scheduling new reminders...');
+    // Cancel any existing reminders before scheduling new ones
+    await cancelAttendanceReminders();
 
     // Schedule first reminder at 9:00 AM
     await _scheduleAttendanceReminder(
@@ -152,9 +188,19 @@ class NotificationService {
       body: 'You haven\'t checked in yet! Please mark your attendance now.',
     );
 
+    // Verify they were scheduled
+    final pendingAfter = await getPendingNotifications();
     print(
-      'NotificationService: Daily reminders scheduled for 9:00 AM and 9:15 AM',
+      'NotificationService: Pending notifications after scheduling: ${pendingAfter.length}',
     );
+    for (var n in pendingAfter) {
+      print('  - ID: ${n.id}, Title: ${n.title}');
+    }
+
+    print(
+      'NotificationService: ✅ Daily reminders scheduled for 9:00 AM and 9:15 AM',
+    );
+    print('═══════════════════════════════════════════════════════');
   }
 
   /// Schedule a specific attendance reminder
@@ -167,7 +213,12 @@ class NotificationService {
   }) async {
     final now = tz.TZDateTime.now(tz.local);
 
-    // Schedule for today if time hasn't passed, otherwise tomorrow
+    print('NotificationService: Current time: ${now.toString()}');
+    print(
+      'NotificationService: Target time: $hour:${minute.toString().padLeft(2, '0')}',
+    );
+
+    // Calculate the next occurrence of the target time
     var scheduledDate = tz.TZDateTime(
       tz.local,
       now.year,
@@ -178,10 +229,20 @@ class NotificationService {
     );
 
     // If the scheduled time has already passed today, schedule for tomorrow
-    if (scheduledDate.isBefore(now)) {
+    if (scheduledDate.isBefore(now) || scheduledDate.isAtSameMomentAs(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
+      print(
+        'NotificationService: Time already passed today, scheduling for tomorrow',
+      );
     }
 
+    print(
+      'NotificationService: Scheduling notification for ${scheduledDate.toString()}',
+    );
+
+    // CRITICAL FIX: Use matchDateTimeComponents to repeat daily
+    // This parameter tells the system to match only the time component,
+    // effectively creating a daily repeating notification
     await _notificationsPlugin.zonedSchedule(
       id,
       title,
@@ -192,29 +253,39 @@ class NotificationService {
           'attendance_reminder',
           'Attendance Reminders',
           channelDescription: 'Daily reminders to check in for attendance',
-          importance: Importance.high,
+          importance: Importance.max,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
-          sound: const RawResourceAndroidNotificationSound('notification'),
           enableVibration: true,
           playSound: true,
+          showWhen: true,
+          when: scheduledDate.millisecondsSinceEpoch,
+          usesChronometer: false,
+          channelShowBadge: true,
+          ongoing: false,
+          autoCancel: false,
+          category: AndroidNotificationCategory.reminder,
         ),
         iOS: const DarwinNotificationDetails(
           presentAlert: true,
           presentBadge: true,
           presentSound: true,
           sound: 'default',
+          categoryIdentifier: 'attendance_reminder',
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents:
-          DateTimeComponents.time, // Repeat daily at this time
+      matchDateTimeComponents: DateTimeComponents.time,
     );
 
     print(
-      'NotificationService: Scheduled reminder $id for ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}',
+      'NotificationService: ✅ Scheduled DAILY REPEATING reminder $id for ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}',
+    );
+    print('NotificationService: First occurrence: ${scheduledDate.toString()}');
+    print(
+      'NotificationService: Will repeat daily at the same time automatically',
     );
   }
 
@@ -236,11 +307,190 @@ class NotificationService {
     }
   }
 
+  /// Verify reminders are scheduled and reschedule if missing
+  /// This should be called when app starts to ensure reminders persist
+  Future<void> verifyAndRescheduleReminders() async {
+    try {
+      if (!_isInitialized) {
+        await initialize();
+      }
+
+      final user = await _authService.getCurrentUser();
+      if (user == null) return;
+
+      // Directors don't get reminders
+      if (user.role == 'director') return;
+
+      // Check if user has already checked in today
+      final hasCheckedIn = await _attendanceService.hasCheckedInToday(user.id);
+      if (hasCheckedIn) {
+        print(
+          'NotificationService: User already checked in, no reminders needed',
+        );
+        return;
+      }
+
+      // Check if reminders are enabled
+      final prefs = await SharedPreferences.getInstance();
+      final notificationsEnabled =
+          prefs.getBool('notifications_enabled') ?? true;
+      if (!notificationsEnabled) {
+        print('NotificationService: Notifications disabled by user');
+        return;
+      }
+
+      // Check if reminders exist
+      final pending = await getPendingNotifications();
+      final hasFirstReminder = pending.any(
+        (n) => n.id == _firstReminderNotificationId,
+      );
+      final hasSecondReminder = pending.any(
+        (n) => n.id == _secondReminderNotificationId,
+      );
+
+      if (!hasFirstReminder || !hasSecondReminder) {
+        print('NotificationService: Reminders missing, rescheduling...');
+        await scheduleDailyAttendanceReminders();
+      } else {
+        print(
+          'NotificationService: Reminders verified OK (${pending.length} pending)',
+        );
+      }
+    } catch (e) {
+      print('NotificationService: Error verifying reminders: $e');
+    }
+  }
+
   /// Cancel all attendance reminders
   Future<void> cancelAttendanceReminders() async {
     await _notificationsPlugin.cancel(_firstReminderNotificationId);
     await _notificationsPlugin.cancel(_secondReminderNotificationId);
     print('NotificationService: Attendance reminders cancelled');
+  }
+
+  /// Cancel test reminders
+  Future<void> cancelTestReminders() async {
+    await _notificationsPlugin.cancel(_testReminder1NotificationId);
+    await _notificationsPlugin.cancel(_testReminder2NotificationId);
+    print('NotificationService: Test reminders cancelled');
+  }
+
+  /// Schedule test reminders at +1 minute and +2 minutes from now
+  /// This is for testing if notifications work when app is closed
+  Future<void> scheduleTestReminders() async {
+    try {
+      if (!_isInitialized) {
+        print(
+          'NotificationService: Initializing before scheduling test reminders...',
+        );
+        await initialize();
+      }
+
+      print('NotificationService: Starting to schedule test reminders...');
+      final now = tz.TZDateTime.now(tz.local);
+      print('NotificationService: Current time: ${now.toString()}');
+
+      // Cancel any existing test reminders first
+      await cancelTestReminders();
+      print('NotificationService: Cancelled any existing test reminders');
+
+      // Schedule first test reminder at +1 minute
+      final firstTestTime = now.add(const Duration(minutes: 1));
+      print(
+        'NotificationService: Scheduling first test reminder for: ${firstTestTime.toString()}',
+      );
+
+      await _notificationsPlugin.zonedSchedule(
+        _testReminder1NotificationId,
+        '🧪 Test Reminder +1 Min',
+        'This is a test reminder scheduled 1 minute ago. If you see this, scheduled notifications work!',
+        firstTestTime,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'test_reminder',
+            'Test Reminders',
+            channelDescription: 'Test reminders to verify notification system',
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+            enableVibration: true,
+            playSound: true,
+            showWhen: true,
+            ongoing: false,
+            autoCancel: false,
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+            sound: 'default',
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      print(
+        'NotificationService: First test reminder scheduled successfully (ID: $_testReminder1NotificationId)',
+      );
+
+      // Schedule second test reminder at +2 minutes
+      final secondTestTime = now.add(const Duration(minutes: 2));
+      print(
+        'NotificationService: Scheduling second test reminder for: ${secondTestTime.toString()}',
+      );
+
+      await _notificationsPlugin.zonedSchedule(
+        _testReminder2NotificationId,
+        '🧪 Test Reminder +2 Min',
+        'This is a test reminder scheduled 2 minutes ago. Background notifications are working!',
+        secondTestTime,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'test_reminder',
+            'Test Reminders',
+            channelDescription: 'Test reminders to verify notification system',
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+            enableVibration: true,
+            playSound: true,
+            showWhen: true,
+            ongoing: false,
+            autoCancel: false,
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+            sound: 'default',
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      print(
+        'NotificationService: Second test reminder scheduled successfully (ID: $_testReminder2NotificationId)',
+      );
+
+      // Verify pending notifications
+      final pending = await getPendingNotifications();
+      print(
+        'NotificationService: Total pending notifications after scheduling: ${pending.length}',
+      );
+      for (var notification in pending) {
+        print('  - ID: ${notification.id}, Title: ${notification.title}');
+      }
+
+      print(
+        'NotificationService: ✅ Test reminders scheduled for +1 min (${firstTestTime.hour}:${firstTestTime.minute.toString().padLeft(2, '0')}) and +2 min (${secondTestTime.hour}:${secondTestTime.minute.toString().padLeft(2, '0')})',
+      );
+    } catch (e, stackTrace) {
+      print('NotificationService: ❌ ERROR scheduling test reminders: $e');
+      print('NotificationService: Stack trace: $stackTrace');
+      rethrow;
+    }
   }
 
   /// Show an immediate notification (for testing or immediate alerts)
@@ -249,31 +499,57 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
-    if (!_isInitialized) {
-      await initialize();
-    }
+    print('═══════════════════════════════════════════════════════');
+    print('NotificationService: showImmediateNotification() called');
+    print('Title: $title');
+    print('Body: $body');
+    print('═══════════════════════════════════════════════════════');
 
-    await _notificationsPlugin.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title,
-      body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'general',
-          'General Notifications',
-          channelDescription: 'General app notifications',
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+    try {
+      if (!_isInitialized) {
+        print('NotificationService: Not initialized, initializing now...');
+        await initialize();
+      }
+
+      final notificationId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      print('NotificationService: Notification ID: $notificationId');
+      print('NotificationService: Showing notification...');
+
+      await _notificationsPlugin.show(
+        notificationId,
+        title,
+        body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'general',
+            'General Notifications',
+            channelDescription: 'General app notifications',
+            importance: Importance.max,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+            showWhen: true,
+            ongoing: false,
+            autoCancel: false,
+            enableVibration: true,
+            playSound: true,
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
-        iOS: DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-      payload: payload,
-    );
+        payload: payload,
+      );
+
+      print('NotificationService: ✅ Immediate notification shown successfully');
+      print('═══════════════════════════════════════════════════════');
+    } catch (e, stackTrace) {
+      print('NotificationService: ❌ ERROR showing immediate notification: $e');
+      print('NotificationService: Stack trace: $stackTrace');
+      print('═══════════════════════════════════════════════════════');
+      rethrow;
+    }
   }
 
   /// Cancel all notifications
@@ -322,5 +598,66 @@ class NotificationService {
     );
 
     print('NotificationService: Test notification sent');
+  }
+
+  /// Check if exact alarm permission is granted (Android 12+)
+  /// Returns true if permission is granted or not needed (older Android)
+  Future<bool> canScheduleExactAlarms() async {
+    try {
+      final androidImplementation = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+
+      if (androidImplementation == null) {
+        print('NotificationService: Not on Android platform');
+        return true; // iOS or other platform
+      }
+
+      // This will return true on Android < 12 or if permission is granted
+      final canSchedule = await androidImplementation
+          .canScheduleExactNotifications();
+      print(
+        'NotificationService: Can schedule exact alarms: ${canSchedule ?? false}',
+      );
+      return canSchedule ?? false;
+    } catch (e) {
+      print('NotificationService: Error checking exact alarm permission: $e');
+      return false;
+    }
+  }
+
+  /// Request exact alarm permission (Android 12+)
+  Future<bool> requestExactAlarmPermission() async {
+    try {
+      final androidImplementation = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+
+      if (androidImplementation == null) {
+        return true; // iOS or other platform
+      }
+
+      final canSchedule = await androidImplementation
+          .canScheduleExactNotifications();
+      if (canSchedule == true) {
+        print('NotificationService: Exact alarm permission already granted');
+        return true;
+      }
+
+      // Request permission by opening settings
+      print('NotificationService: Requesting exact alarm permission...');
+      await androidImplementation.requestExactAlarmsPermission();
+
+      // Check again after request
+      final granted = await androidImplementation
+          .canScheduleExactNotifications();
+      print('NotificationService: Permission granted: ${granted ?? false}');
+      return granted ?? false;
+    } catch (e) {
+      print('NotificationService: Error requesting exact alarm permission: $e');
+      return false;
+    }
   }
 }

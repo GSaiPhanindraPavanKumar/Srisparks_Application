@@ -36,6 +36,7 @@ import '../screens/employee/employee_unified_dashboard.dart';
 import '../screens/employee/employee_customer_dashboard.dart';
 import '../debug_amount_phase.dart';
 import '../screens/shared/help_screen.dart';
+import '../screens/shared/notification_test_screen.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 
@@ -83,6 +84,7 @@ class AppRoutes {
       '/employee-customer-dashboard';
   static const String debugAmountPhase = '/debug-amount-phase';
   static const String help = '/help';
+  static const String notificationTest = '/notification-test';
 }
 
 class AppRouter {
@@ -408,6 +410,12 @@ class AppRouter {
       case AppRoutes.help:
         return MaterialPageRoute(
           builder: (_) => const RouteGuard(child: HelpScreen()),
+          settings: settings,
+        );
+
+      case AppRoutes.notificationTest:
+        return MaterialPageRoute(
+          builder: (_) => const RouteGuard(child: NotificationTestScreen()),
           settings: settings,
         );
 

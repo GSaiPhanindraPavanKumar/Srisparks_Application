@@ -191,6 +191,30 @@ class StockService {
     }
   }
 
+  // Update stock item name only
+  Future<bool> updateStockItemName({
+    required String stockItemId,
+    required String newName,
+  }) async {
+    try {
+      print('Updating stock item name: $stockItemId to "$newName"');
+
+      await _supabase
+          .from('stock_items')
+          .update({
+            'name': newName,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', stockItemId);
+
+      print('Stock item name updated successfully');
+      return true;
+    } catch (e) {
+      print('Error updating stock item name: $e');
+      rethrow;
+    }
+  }
+
   // Delete stock item
   Future<bool> deleteStockItem(String id) async {
     try {

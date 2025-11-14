@@ -183,6 +183,47 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
     }
   }
 
+  Future<void> _scheduleTestHourlyReminders() async {
+    print('═══════════════════════════════════════════════════════');
+    print('TEST HOURLY: _scheduleTestHourlyReminders() called');
+    print('═══════════════════════════════════════════════════════');
+
+    try {
+      // Check exact alarm permission first
+      print('TEST HOURLY: Can schedule exact alarms: $_canScheduleExactAlarms');
+
+      if (!_canScheduleExactAlarms) {
+        print('TEST HOURLY: ❌ Exact alarm permission DENIED');
+        _showSnackBar(
+          '⚠️ Exact alarm permission required! Tap "Request Permission" button below.',
+        );
+        return;
+      }
+
+      print(
+        'TEST HOURLY: ✅ Permission OK, calling scheduleTestHourlyReminders()...',
+      );
+      await _notificationService.scheduleTestHourlyReminders();
+
+      print('TEST HOURLY: ✅ scheduleTestHourlyReminders() completed');
+      print('TEST HOURLY: Refreshing notification status...');
+      await _checkNotificationStatus();
+
+      print(
+        'TEST HOURLY: Pending after scheduling: $_pendingNotificationCount',
+      );
+      _showSnackBar(
+        '🎯 Test hourly reminders scheduled!\nClose app and wait.\n3 reminders at +1, +2, +3 minutes.',
+      );
+      print('═══════════════════════════════════════════════════════');
+    } catch (e, stackTrace) {
+      print('TEST HOURLY: ❌ ERROR: $e');
+      print('TEST HOURLY: Stack trace: $stackTrace');
+      print('═══════════════════════════════════════════════════════');
+      _showSnackBar('Error scheduling hourly test: $e');
+    }
+  }
+
   Future<void> _requestExactAlarmPermission() async {
     try {
       final granted = await _notificationService.requestExactAlarmPermission();
@@ -523,6 +564,40 @@ class _NotificationTestScreenState extends State<NotificationTestScreen> {
                 child: Text(
                   'Tap above, then close the app completely. You\'ll get notifications at +1 and +2 minutes.',
                   style: TextStyle(fontSize: 12, color: Colors.purple.shade700),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Test Hourly Update Reminders (+1, +2, +3 minutes)
+        ElevatedButton.icon(
+          onPressed: _scheduleTestHourlyReminders,
+          icon: const Icon(Icons.update),
+          label: const Text('Test: Hourly Updates (+1/2/3 Min)'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.teal,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.teal.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.teal.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.teal, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Test hourly update reminders (real feature after check-in). Get 3 notifications at +1, +2, +3 minutes.',
+                  style: TextStyle(fontSize: 12, color: Colors.teal.shade700),
                 ),
               ),
             ],

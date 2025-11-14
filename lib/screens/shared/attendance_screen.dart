@@ -4,6 +4,7 @@ import '../../models/attendance_model.dart';
 import '../../models/attendance_update_model.dart';
 import '../../services/attendance_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 import '../../models/user_model.dart';
 
 class AttendanceScreen extends StatefulWidget {
@@ -137,6 +138,29 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         _todayAttendance = attendance;
       });
 
+      // Schedule hourly update reminders after successful check-in
+      try {
+        print('AttendanceScreen: Starting to schedule hourly reminders...');
+        await NotificationService().scheduleHourlyUpdateReminders();
+        print('AttendanceScreen: ✅ Hourly update reminders scheduled');
+
+        // Verify what's scheduled
+        final pending = await NotificationService().getPendingNotifications();
+        print(
+          'AttendanceScreen: Total pending notifications: ${pending.length}',
+        );
+        for (var notification in pending) {
+          if (notification.id >= 300 && notification.id < 320) {
+            print(
+              'AttendanceScreen:   - Hourly reminder ID ${notification.id}: ${notification.title}',
+            );
+          }
+        }
+      } catch (e) {
+        print('AttendanceScreen: ⚠️ Failed to schedule hourly reminders: $e');
+        // Don't fail check-in if reminders fail
+      }
+
       _showMessage('Successfully checked in!');
     } catch (e) {
       _showMessage('Error checking in: $e');
@@ -235,6 +259,15 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
     try {
       await _attendanceService.checkOut(summary: summary);
+
+      // Cancel all hourly update reminders after successful check-out
+      try {
+        await NotificationService().cancelHourlyUpdateReminders();
+        print('AttendanceScreen: ✅ Hourly update reminders cancelled');
+      } catch (e) {
+        print('AttendanceScreen: ⚠️ Failed to cancel hourly reminders: $e');
+        // Don't fail check-out if reminder cancellation fails
+      }
 
       setState(() {
         _todayAttendance = null; // Clear active attendance

@@ -189,6 +189,87 @@ class _DirectorStockManagementScreenState
     }
   }
 
+  Future<void> _showEditItemNameDialog(StockItemModel item) async {
+    final nameController = TextEditingController(text: item.name);
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Item Name'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Item Name',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Changing the name will update it across all stock logs',
+                      style: TextStyle(fontSize: 12, color: Colors.blue),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.trim().isEmpty) {
+                return;
+              }
+              if (nameController.text.trim() == item.name) {
+                Navigator.pop(context);
+                return;
+              }
+              Navigator.pop(context, nameController.text.trim());
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && item.id != null) {
+      try {
+        await _stockService.updateStockItemName(
+          stockItemId: item.id!,
+          newName: result,
+        );
+        await _loadStockForOffice(selectedOfficeId!);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Item name updated successfully')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error updating item name: $e')));
+      }
+    }
+  }
+
   Future<void> _showUpdateStockDialog(StockItemModel item) async {
     final quantityController = TextEditingController();
     final reasonController = TextEditingController();
@@ -417,52 +498,14 @@ class _DirectorStockManagementScreenState
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () => _showUpdateStockDialog(item),
+                  icon: const Icon(Icons.edit_note, color: Colors.blue),
+                  onPressed: () => _showEditItemNameDialog(item),
+                  tooltip: 'Edit Name',
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Delete Item'),
-                        content: Text(
-                          'Are you sure you want to delete "${item.name}"?',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancel'),
-                          ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                            ),
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Delete'),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (confirm == true && item.id != null) {
-                      try {
-                        await _stockService.deleteStockItem(item.id!);
-                        await _loadStockForOffice(selectedOfficeId!);
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Item deleted successfully'),
-                          ),
-                        );
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error deleting item: $e')),
-                        );
-                      }
-                    }
-                  },
+                  icon: const Icon(Icons.add_box, color: Colors.green),
+                  onPressed: () => _showUpdateStockDialog(item),
+                  tooltip: 'Update Stock',
                 ),
               ],
             ),

@@ -1,9 +1,13 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'attendance_service.dart';
 import 'auth_service.dart';
+import '../main.dart'; // For navigator key
+import '../screens/shared/hourly_update_prompt_screen.dart';
+import '../screens/shared/attendance_screen.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -23,6 +27,9 @@ class NotificationService {
   static const int _secondReminderNotificationId = 101;
   static const int _testReminder1NotificationId = 200;
   static const int _testReminder2NotificationId = 201;
+
+  // Hourly update reminder IDs (300-320 for 20 hours max)
+  static const int _hourlyUpdateReminderBaseId = 300;
 
   /// Initialize notification service
   Future<void> initialize() async {
@@ -90,9 +97,37 @@ class NotificationService {
 
   /// Handle notification tap
   void _onNotificationTapped(NotificationResponse response) {
+    print('═══════════════════════════════════════════════════════');
     print('Notification tapped: ${response.payload}');
-    // You can navigate to attendance screen here if needed
-    // Example: Get.to(() => AttendanceScreen());
+    print('Notification action: ${response.actionId}');
+    print('═══════════════════════════════════════════════════════');
+
+    // Handle hourly update prompt - Open full-screen dialog
+    if (response.payload == 'hourly_update_prompt') {
+      print('Opening hourly update prompt screen...');
+
+      // Navigate to full-screen prompt using global navigator key
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (context) => const HourlyUpdatePromptScreen(),
+          fullscreenDialog: true,
+        ),
+      );
+    }
+    // Handle "Add Update" button - Navigate to Attendance Screen
+    else if (response.actionId == 'add_update') {
+      print('Add update action triggered - Navigating to Attendance Screen');
+
+      // Navigate to AttendanceScreen to add update
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(builder: (context) => const AttendanceScreen()),
+      );
+    }
+    // Handle "Skip" button - Just dismiss
+    else if (response.actionId == 'skip') {
+      print('Skip action triggered - Dismissing notification');
+      // Notification automatically dismisses, no action needed
+    }
   }
 
   /// Schedule daily attendance reminders
@@ -368,6 +403,234 @@ class NotificationService {
     print('NotificationService: Attendance reminders cancelled');
   }
 
+  /// Schedule hourly update reminders after check-in
+  /// Will send notification every hour until checkout
+  Future<void> scheduleHourlyUpdateReminders() async {
+    print('═══════════════════════════════════════════════════════');
+    print('NotificationService: scheduleHourlyUpdateReminders() called');
+    print('═══════════════════════════════════════════════════════');
+
+    if (!_isInitialized) {
+      await initialize();
+    }
+
+    try {
+      // Cancel any existing hourly reminders first
+      await cancelHourlyUpdateReminders();
+
+      final user = await _authService.getCurrentUser();
+      if (user == null) {
+        print('NotificationService: ❌ No user found');
+        return;
+      }
+
+      // Check if user is checked in
+      final hasCheckedIn = await _attendanceService.hasCheckedInToday(user.id);
+      if (!hasCheckedIn) {
+        print(
+          'NotificationService: ❌ User not checked in, cannot schedule hourly reminders',
+        );
+        return;
+      }
+
+      // Get today's attendance to check check-in time
+      final todayAttendance = await _attendanceService
+          .getTodayActiveAttendance();
+      if (todayAttendance == null) {
+        print('NotificationService: ❌ No active attendance found');
+        return;
+      }
+
+      print(
+        'NotificationService: ✅ User checked in at ${todayAttendance.checkInTime}',
+      );
+
+      // Check if we have exact alarm permission
+      final canSchedule = await canScheduleExactAlarms();
+      if (!canSchedule) {
+        print('NotificationService: ⚠️ Exact alarm permission not granted');
+        print('NotificationService: Requesting exact alarm permission...');
+        final granted = await requestExactAlarmPermission();
+        if (!granted) {
+          print('NotificationService: ❌ Failed to get exact alarm permission');
+          return;
+        }
+      }
+
+      // Schedule reminders every hour starting from next hour
+      final now = DateTime.now();
+      final checkInTime = todayAttendance.checkInTime;
+
+      print('NotificationService: Current time: ${now.toString()}');
+      print('NotificationService: Check-in time: ${checkInTime.toString()}');
+
+      // Calculate first reminder time (1 hour after check-in)
+      var nextReminderTime = checkInTime.add(const Duration(hours: 1));
+
+      print(
+        'NotificationService: Calculated first reminder: ${nextReminderTime.toString()}',
+      );
+
+      // If first reminder time has passed, start from next hour
+      if (nextReminderTime.isBefore(now)) {
+        // Schedule from the next hour instead
+        nextReminderTime = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          now.hour + 1,
+          0, // On the hour
+        );
+        print(
+          'NotificationService: First reminder has passed, rescheduling to: ${nextReminderTime.toString()}',
+        );
+      }
+
+      int reminderCount = 0;
+      final maxReminders = 12; // Maximum 12 hourly reminders (12 hour workday)
+
+      // Schedule up to 12 hourly reminders
+      for (int i = 0; i < maxReminders; i++) {
+        final reminderTime = nextReminderTime.add(Duration(hours: i));
+
+        // Don't schedule if it's past end of work day (6 PM)
+        if (reminderTime.hour >= 18) {
+          print(
+            'NotificationService: Stopping at 6 PM boundary (hour: ${reminderTime.hour})',
+          );
+          break;
+        }
+
+        // Don't schedule if it's next day
+        if (reminderTime.day != now.day) {
+          print('NotificationService: Stopping at day boundary');
+          break;
+        }
+
+        // Don't schedule if time is in the past
+        if (reminderTime.isBefore(now)) {
+          print(
+            'NotificationService: Skipping past time: ${reminderTime.toString()}',
+          );
+          continue;
+        }
+
+        await _scheduleHourlyUpdateReminder(
+          id: _hourlyUpdateReminderBaseId + i,
+          scheduledTime: reminderTime,
+          hourNumber: i + 1,
+        );
+
+        reminderCount++;
+      }
+
+      print(
+        'NotificationService: ✅ Scheduled $reminderCount hourly update reminders',
+      );
+      print(
+        'NotificationService: First reminder at ${nextReminderTime.toString()}',
+      );
+      print('═══════════════════════════════════════════════════════');
+    } catch (e) {
+      print('NotificationService: ❌ Error scheduling hourly reminders: $e');
+      print('═══════════════════════════════════════════════════════');
+    }
+  }
+
+  /// Schedule a single hourly update reminder with full-screen intent
+  Future<void> _scheduleHourlyUpdateReminder({
+    required int id,
+    required DateTime scheduledTime,
+    required int hourNumber,
+  }) async {
+    final tzScheduledTime = tz.TZDateTime.from(scheduledTime, tz.local);
+
+    print(
+      'NotificationService: Scheduling hourly reminder $id for ${tzScheduledTime.toString()}',
+    );
+
+    try {
+      await _notificationsPlugin.zonedSchedule(
+        id,
+        '📝 Time to Add Update',
+        'Tap to share what you\'re working on - Hour $hourNumber',
+        tzScheduledTime,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'hourly_updates',
+            'Hourly Update Reminders',
+            channelDescription:
+                'Full-screen reminders to add status updates during work hours',
+            importance: Importance.max,
+            priority: Priority.max,
+            icon: '@mipmap/ic_launcher',
+            enableVibration: true,
+            playSound: true,
+            showWhen: true,
+            when: tzScheduledTime.millisecondsSinceEpoch,
+            channelShowBadge: true,
+            ongoing: false,
+            autoCancel: true,
+            category: AndroidNotificationCategory.reminder,
+            // Enable full-screen intent (like Teams)
+            fullScreenIntent: true,
+            // Action buttons
+            actions: <AndroidNotificationAction>[
+              const AndroidNotificationAction(
+                'add_update',
+                'Add Update',
+                showsUserInterface: true,
+                cancelNotification: true,
+              ),
+              const AndroidNotificationAction(
+                'skip',
+                'Skip',
+                cancelNotification: true,
+              ),
+            ],
+            styleInformation: const BigTextStyleInformation(
+              'Tap to open and share your current work status with the team',
+              contentTitle: '📝 Time to Add Update',
+              summaryText: 'Hourly Status Update',
+            ),
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+            sound: 'default',
+            categoryIdentifier: 'hourly_update',
+            interruptionLevel: InterruptionLevel.timeSensitive,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        payload: 'hourly_update_prompt',
+      );
+
+      print(
+        'NotificationService: ✅ Scheduled hourly reminder $id successfully with full-screen intent',
+      );
+    } catch (e) {
+      print('NotificationService: ❌ Error scheduling hourly reminder $id: $e');
+      rethrow;
+    }
+  }
+
+  /// Cancel all hourly update reminders
+  Future<void> cancelHourlyUpdateReminders() async {
+    try {
+      // Cancel all possible hourly reminder IDs (0-19)
+      for (int i = 0; i < 20; i++) {
+        await _notificationsPlugin.cancel(_hourlyUpdateReminderBaseId + i);
+      }
+      print('NotificationService: ✅ Hourly update reminders cancelled');
+    } catch (e) {
+      print('NotificationService: ❌ Error cancelling hourly reminders: $e');
+    }
+  }
+
   /// Cancel test reminders
   Future<void> cancelTestReminders() async {
     await _notificationsPlugin.cancel(_testReminder1NotificationId);
@@ -489,6 +752,102 @@ class NotificationService {
     } catch (e, stackTrace) {
       print('NotificationService: ❌ ERROR scheduling test reminders: $e');
       print('NotificationService: Stack trace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Schedule test hourly reminders (for quick testing - notifications at +1, +2, +3 minutes)
+  Future<void> scheduleTestHourlyReminders() async {
+    print('═══════════════════════════════════════════════════════');
+    print('NotificationService: scheduleTestHourlyReminders() called');
+    print('═══════════════════════════════════════════════════════');
+
+    try {
+      if (!_isInitialized) {
+        await initialize();
+      }
+
+      // Cancel existing hourly reminders first
+      await cancelHourlyUpdateReminders();
+
+      final now = tz.TZDateTime.now(tz.local);
+      print('NotificationService: Current time: ${now.toString()}');
+
+      // Schedule 3 test reminders at +1, +2, +3 minutes
+      for (int i = 0; i < 3; i++) {
+        final reminderTime = now.add(Duration(minutes: i + 1));
+        final notificationId = _hourlyUpdateReminderBaseId + i;
+
+        await _notificationsPlugin.zonedSchedule(
+          notificationId,
+          '🧪 Test Hourly Update #${i + 1}',
+          'Tap to test the full-screen update prompt (Test ${i + 1}/3)',
+          reminderTime,
+          NotificationDetails(
+            android: AndroidNotificationDetails(
+              'hourly_updates',
+              'Hourly Update Reminders',
+              channelDescription:
+                  'Full-screen reminders to add status updates during work hours',
+              importance: Importance.max,
+              priority: Priority.max,
+              icon: '@mipmap/ic_launcher',
+              enableVibration: true,
+              playSound: true,
+              showWhen: true,
+              when: reminderTime.millisecondsSinceEpoch,
+              fullScreenIntent: true,
+              actions: <AndroidNotificationAction>[
+                const AndroidNotificationAction(
+                  'add_update',
+                  'Add Update',
+                  showsUserInterface: true,
+                  cancelNotification: true,
+                ),
+                const AndroidNotificationAction(
+                  'skip',
+                  'Skip',
+                  cancelNotification: true,
+                ),
+              ],
+            ),
+            iOS: const DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+              sound: 'default',
+              interruptionLevel: InterruptionLevel.timeSensitive,
+            ),
+          ),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          payload: 'hourly_update_prompt',
+        );
+
+        print(
+          'NotificationService: ✅ Test hourly reminder $notificationId scheduled for ${reminderTime.toString()}',
+        );
+      }
+
+      // Verify pending notifications
+      final pending = await getPendingNotifications();
+      print(
+        'NotificationService: Total pending notifications: ${pending.length}',
+      );
+      for (var notification in pending) {
+        print('  - ID: ${notification.id}, Title: ${notification.title}');
+      }
+
+      print(
+        'NotificationService: ✅ Test hourly reminders scheduled successfully',
+      );
+      print('═══════════════════════════════════════════════════════');
+    } catch (e) {
+      print(
+        'NotificationService: ❌ Error scheduling test hourly reminders: $e',
+      );
+      print('═══════════════════════════════════════════════════════');
       rethrow;
     }
   }

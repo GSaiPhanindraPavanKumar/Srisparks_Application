@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
-import '../services/session_service.dart';
 import '../services/notification_service.dart';
 import '../services/location_service.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/ui_components.dart';
-import '../widgets/biometric_verification_dialog.dart';
 import '../theme/app_theme.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -21,7 +19,6 @@ class _AuthScreenState extends State<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
-  final _sessionService = SessionService();
   final _notificationService = NotificationService();
   final _locationService = LocationService();
 
@@ -32,184 +29,39 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeAuth();
+    _checkIfAlreadyLoggedIn();
   }
 
-  Future<void> _initializeAuth() async {
-    setState(() {
-      _isCheckingSession = true;
-    });
+  /// Simple check: if user is already logged in, navigate to dashboard
+  Future<void> _checkIfAlreadyLoggedIn() async {
+    setState(() => _isCheckingSession = true);
 
-    await _testConnection();
-    await _checkExistingSession();
-
-    setState(() {
-      _isCheckingSession = false;
-    });
-  }
-
-  Future<void> _testConnection() async {
-    final isConnected = await _authService.testConnection();
-    if (!isConnected) {
-      _showMessage(
-        'Connection to server failed. Please check your internet connection.',
-      );
-    }
-  }
-
-  /// Check if user has valid session (within 24 hours)
-  Future<void> _checkExistingSession() async {
     try {
-      print('Checking existing session...');
-      final isSessionValid = await _sessionService.isSessionValid();
+      final currentUser = Supabase.instance.client.auth.currentUser;
 
-      if (!isSessionValid) {
-        print('No valid session found');
-        return;
-      }
+      if (currentUser != null) {
+        print('User already logged in: ${currentUser.email}');
 
-      print('Valid session found - checking biometric requirement');
+        // Get user profile and validate
+        final user = await _authService.getCurrentUser();
 
-      // Check if biometric is enabled for session re-authentication
-      final isBiometricEnabled = await _sessionService
-          .isBiometricEnabledForSession();
-
-      if (!isBiometricEnabled) {
-        print(
-          'Biometric not enabled for session - require password re-authentication',
-        );
-        print('Clearing session to enforce login');
-        await _sessionService.clearSession();
-        await _authService.signOut();
-        _showMessage('Please login to continue');
-        return;
-      }
-
-      // Check if biometric is available on device
-      final isBiometricAvailable = await _authService.isBiometricAvailable();
-
-      if (!isBiometricAvailable) {
-        print(
-          'Biometric not available on device - require password re-authentication',
-        );
-        print('Clearing session to enforce login');
-        await _sessionService.clearSession();
-        await _authService.signOut();
-        _showMessage('Please login to continue');
-        return;
-      }
-
-      // Show biometric verification dialog
-      print('Showing biometric verification dialog');
-      if (mounted) {
-        final verified = await BiometricVerificationDialog.show(
-          context,
-          onFallbackToPassword: () async {
-            // User chose to use password - clear session and show login
-            print('User chose to use password - clearing session');
-            await _sessionService.clearSession();
-            await _authService.signOut();
-            _showMessage('Please login with your password');
-          },
-        );
-
-        if (verified) {
-          print('Biometric verification successful');
-          await _continueToUserDashboard();
+        if (user != null && _authService.canUserLogin(user)) {
+          print('Valid user found, navigating to dashboard');
+          await _navigateToUserDashboard(user);
         } else {
-          print(
-            'Biometric verification failed or cancelled - clearing session',
-          );
-          await _sessionService.clearSession();
+          print('Invalid user or not approved, signing out');
           await _authService.signOut();
         }
+      } else {
+        print('No logged in user found');
       }
     } catch (e) {
-      print('Error checking existing session: $e');
-    }
-  }
-
-  /// Continue to user dashboard without login
-  Future<void> _continueToUserDashboard() async {
-    try {
-      final user = await _authService.getCurrentUser();
-
-      if (user == null) {
-        print('No user found - clearing session');
-        await _sessionService.clearSession();
-        await _authService.signOut();
-        _showMessage('User profile not found. Please login again.');
-        return;
-      }
-
-      // Check if user can login (active AND approved)
-      print(
-        'Checking user status: ${user.status.name}, approval: ${user.approvalStatus.name}',
-      );
-
-      if (!_authService.canUserLogin(user)) {
-        print(
-          'User cannot login - status: ${user.status.name}, approval: ${user.approvalStatus.name}',
-        );
-        await _sessionService.clearSession();
-        await _authService.signOut();
-
-        // Check specific reasons
-        if (_authService.needsApproval(user.approvalStatus)) {
-          _showMessage(
-            'Your account is pending approval. Please contact your administrator.',
-          );
-        } else if (_authService.isRejected(user.approvalStatus)) {
-          _showMessage(
-            'Your account has been rejected. Please contact your administrator.',
-          );
-        } else if (!_authService.isUserActive(user.status)) {
-          _showMessage(
-            'Your account is inactive. Please contact your administrator.',
-          );
-        } else {
-          _showMessage('Access denied. Please contact your administrator.');
-        }
-        return;
-      }
-
-      print('User is active and approved - continuing to dashboard');
-
-      // Update activity time
-      await _sessionService.updateActivity();
-
-      // Schedule daily attendance reminders ONLY if not already scheduled
-      // This ensures reminders are set even when using session/biometric login
-      // but prevents unnecessary cancellation and rescheduling
-      try {
-        await _notificationService.initialize();
-
-        // Check if reminders are already scheduled
-        final pending = await _notificationService.getPendingNotifications();
-        final hasReminders = pending.any(
-          (n) => n.id == 100 || n.id == 101,
-        ); // attendance reminder IDs
-
-        if (!hasReminders) {
-          await _notificationService.scheduleDailyAttendanceReminders();
-          print('Attendance reminders scheduled for session login');
-        } else {
-          print('Attendance reminders already exist, skipping schedule');
-        }
-      } catch (e) {
-        print('Error scheduling attendance reminders: $e');
-      }
-
-      // Navigate to dashboard
-      final route = _authService.getRedirectRoute(user);
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, route);
-      }
-    } catch (e) {
-      print('Error continuing to dashboard: $e');
-      await _sessionService.clearSession();
+      print('Error checking login status: $e');
       await _authService.signOut();
-      _showMessage('An error occurred. Please login again.');
+    } finally {
+      if (mounted) {
+        setState(() => _isCheckingSession = false);
+      }
     }
   }
 
@@ -259,14 +111,8 @@ class _AuthScreenState extends State<AuthScreen> {
           }
         }
 
-        // Start session
-        await _sessionService.startSession(user.id);
-
-        // Check and request permissions
-        await _checkAndRequestPermissions();
-
-        // Show biometric setup dialog
-        await _showBiometricSetupDialog();
+        // Request permissions on first login
+        await _requestPermissionsIfNeeded();
 
         // Navigate to dashboard
         await _navigateToUserDashboard(user);
@@ -309,237 +155,34 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   /// Check and request notification and location permissions
-  Future<void> _checkAndRequestPermissions() async {
+  /// Simplified permission request - runs silently on first login
+  Future<void> _requestPermissionsIfNeeded() async {
     try {
-      print('Checking permissions...');
+      print('Requesting permissions silently...');
 
-      // Check notification permissions
+      // Initialize and request notification permissions
       await _notificationService.initialize();
-      final notificationsEnabled = await _notificationService
-          .areNotificationsEnabled();
 
-      if (!notificationsEnabled) {
-        if (mounted) {
-          await _showPermissionDialog(
-            title: 'Enable Notifications',
-            message:
-                'This app needs notification permission to send attendance reminders and important updates.',
-            icon: Icons.notifications_active,
-            onEnable: () async {
-              // Permissions are requested during initialize()
-              print('Notification permission requested');
-            },
-          );
-        }
+      // Schedule daily attendance reminders if not already scheduled
+      final pending = await _notificationService.getPendingNotifications();
+      final hasReminders = pending.any((n) => n.id == 100 || n.id == 101);
+
+      if (!hasReminders) {
+        await _notificationService.scheduleDailyAttendanceReminders();
+        print('Attendance reminders scheduled');
       }
 
-      // Schedule daily attendance reminders (9:00 AM and 9:15 AM)
-      // This will check user role and only schedule for managers/employees/leads
-      // Check if reminders already exist to avoid unnecessary rescheduling
-      try {
-        final pending = await _notificationService.getPendingNotifications();
-        final hasReminders = pending.any(
-          (n) => n.id == 100 || n.id == 101,
-        ); // attendance reminder IDs
+      // Request location permission silently (no dialogs)
+      await _locationService.requestLocationPermission();
 
-        if (!hasReminders) {
-          await _notificationService.scheduleDailyAttendanceReminders();
-          print('Attendance reminders scheduled after fresh login');
-        } else {
-          print('Attendance reminders already exist, skipping schedule');
-        }
-      } catch (e) {
-        print('Error scheduling attendance reminders: $e');
-      }
-
-      // Check location permissions
-      final locationPermission = await _locationService.hasLocationPermission();
-
-      if (!locationPermission) {
-        if (mounted) {
-          await _showPermissionDialog(
-            title: 'Enable Location',
-            message:
-                'This app needs location permission to verify your attendance check-in location.',
-            icon: Icons.location_on,
-            onEnable: () async {
-              final granted = await _locationService
-                  .requestLocationPermission();
-              if (granted) {
-                print('Location permission granted');
-              } else {
-                print('Location permission denied');
-              }
-            },
-          );
-        }
-      }
-
-      // Send test notification to confirm it's working
-      if (notificationsEnabled && mounted) {
-        await _sendTestNotificationAndConfirm();
-      }
+      print('Permissions requested successfully');
     } catch (e) {
-      print('Error checking permissions: $e');
+      print('Error requesting permissions: $e');
+      // Don't block login if permissions fail
     }
   }
 
-  /// Show permission request dialog
-  Future<void> _showPermissionDialog({
-    required String title,
-    required String message,
-    required IconData icon,
-    required Future<void> Function() onEnable,
-  }) async {
-    return showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(icon, color: Theme.of(context).primaryColor),
-            const SizedBox(width: 12),
-            Text(title),
-          ],
-        ),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Skip'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await onEnable();
-              if (mounted) {
-                Navigator.of(context).pop();
-              }
-            },
-            child: const Text('Enable'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Send test notification and ask user to confirm
-  Future<void> _sendTestNotificationAndConfirm() async {
-    try {
-      // Send test notification
-      await _notificationService.showTestNotification();
-
-      if (!mounted) return;
-
-      // Ask user to confirm they received it
-      final confirmed = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.notification_important, color: Colors.blue),
-              SizedBox(width: 12),
-              Text('Test Notification'),
-            ],
-          ),
-          content: const Text(
-            'We just sent you a test notification. Did you receive it?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('No, I didn\'t receive it'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Yes, I received it'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirmed == false && mounted) {
-        // User didn't receive the notification
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Notification Issue'),
-            content: const Text(
-              'Please check your device notification settings and ensure notifications are enabled for this app.',
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      print('Error sending test notification: $e');
-    }
-  }
-
-  /// Show biometric setup dialog after login
-  Future<void> _showBiometricSetupDialog() async {
-    try {
-      // Check if biometric is available
-      final isBiometricAvailable = await _authService.isBiometricAvailable();
-
-      if (!isBiometricAvailable) {
-        print('Biometric not available on device');
-        return;
-      }
-
-      // Check if already enabled
-      final alreadyEnabled = await _sessionService
-          .isBiometricEnabledForSession();
-
-      if (alreadyEnabled) {
-        print('Biometric already enabled for session');
-        return;
-      }
-
-      if (!mounted) return;
-
-      // Ask user if they want to enable biometric
-      final enable = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.fingerprint, color: Colors.blue, size: 32),
-              SizedBox(width: 12),
-              Text('Enable Biometric'),
-            ],
-          ),
-          content: const Text(
-            'Would you like to enable biometric authentication for faster access?\n\n'
-            'When enabled, you\'ll be able to quickly verify your identity using fingerprint or face recognition after 24 hours of inactivity.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Not Now'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Enable'),
-            ),
-          ],
-        ),
-      );
-
-      if (enable == true) {
-        await _sessionService.enableBiometricForSession();
-        _showMessage('Biometric authentication enabled!');
-      }
-    } catch (e) {
-      print('Error showing biometric setup dialog: $e');
-    }
-  }
-
+  ///
   Future<void> _navigateToUserDashboard(user) async {
     final route = _authService.getRedirectRoute(user);
     if (mounted) {

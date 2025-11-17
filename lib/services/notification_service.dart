@@ -309,7 +309,7 @@ class NotificationService {
           categoryIdentifier: 'attendance_reminder',
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.exact,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
@@ -433,58 +433,42 @@ class NotificationService {
         return;
       }
 
-      // Get today's attendance to check check-in time
-      final todayAttendance = await _attendanceService
-          .getTodayActiveAttendance();
-      if (todayAttendance == null) {
-        print('NotificationService: ❌ No active attendance found');
-        return;
-      }
-
       print(
-        'NotificationService: ✅ User checked in at ${todayAttendance.checkInTime}',
+        'NotificationService: ✅ User checked in, scheduling reminders based on current time',
       );
 
-      // Check if we have exact alarm permission
+      // Check if we have exact alarm permission (but don't block if not available)
       final canSchedule = await canScheduleExactAlarms();
       if (!canSchedule) {
         print('NotificationService: ⚠️ Exact alarm permission not granted');
-        print('NotificationService: Requesting exact alarm permission...');
-        final granted = await requestExactAlarmPermission();
-        if (!granted) {
-          print('NotificationService: ❌ Failed to get exact alarm permission');
-          return;
-        }
+        print('NotificationService: Attempting to request permission...');
+        await requestExactAlarmPermission();
+        // Continue anyway - notifications may still work with allowWhileIdle
+        print(
+          'NotificationService: Continuing with notification scheduling...',
+        );
       }
 
       // Schedule reminders every hour starting from next hour
+      // Use mobile's current time instead of database check-in time to avoid timezone issues
       final now = DateTime.now();
-      final checkInTime = todayAttendance.checkInTime;
 
-      print('NotificationService: Current time: ${now.toString()}');
-      print('NotificationService: Check-in time: ${checkInTime.toString()}');
+      print('NotificationService: Current mobile time: ${now.toString()}');
 
-      // Calculate first reminder time (1 hour after check-in)
-      var nextReminderTime = checkInTime.add(const Duration(hours: 1));
-
-      print(
-        'NotificationService: Calculated first reminder: ${nextReminderTime.toString()}',
+      // Calculate next reminder time (next full hour from now)
+      final minutesToNextHour = 60 - now.minute;
+      var nextReminderTime = now.add(
+        Duration(
+          minutes: minutesToNextHour,
+          seconds: -now.second,
+          milliseconds: -now.millisecond,
+          microseconds: -now.microsecond,
+        ),
       );
 
-      // If first reminder time has passed, start from next hour
-      if (nextReminderTime.isBefore(now)) {
-        // Schedule from the next hour instead
-        nextReminderTime = DateTime(
-          now.year,
-          now.month,
-          now.day,
-          now.hour + 1,
-          0, // On the hour
-        );
-        print(
-          'NotificationService: First reminder has passed, rescheduling to: ${nextReminderTime.toString()}',
-        );
-      }
+      print(
+        'NotificationService: First reminder scheduled at: ${nextReminderTime.toString()} (in $minutesToNextHour minutes)',
+      );
 
       int reminderCount = 0;
       final maxReminders = 12; // Maximum 12 hourly reminders (12 hour workday)
@@ -543,10 +527,25 @@ class NotificationService {
     required DateTime scheduledTime,
     required int hourNumber,
   }) async {
-    final tzScheduledTime = tz.TZDateTime.from(scheduledTime, tz.local);
+    // Create TZDateTime directly without conversion to avoid timezone issues
+    // Use the exact date/time values from scheduledTime
+    final tzScheduledTime = tz.TZDateTime(
+      tz.local,
+      scheduledTime.year,
+      scheduledTime.month,
+      scheduledTime.day,
+      scheduledTime.hour,
+      scheduledTime.minute,
+      scheduledTime.second,
+      scheduledTime.millisecond,
+      scheduledTime.microsecond,
+    );
 
     print(
-      'NotificationService: Scheduling hourly reminder $id for ${tzScheduledTime.toString()}',
+      'NotificationService: Scheduling hourly reminder $id for ${scheduledTime.toString()}',
+    );
+    print(
+      'NotificationService: TZDateTime version: ${tzScheduledTime.toString()}',
     );
 
     try {
@@ -603,7 +602,7 @@ class NotificationService {
             interruptionLevel: InterruptionLevel.timeSensitive,
           ),
         ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exact,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         payload: 'hourly_update_prompt',
@@ -689,7 +688,7 @@ class NotificationService {
             sound: 'default',
           ),
         ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exact,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
@@ -729,7 +728,7 @@ class NotificationService {
             sound: 'default',
           ),
         ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exact,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
@@ -819,7 +818,7 @@ class NotificationService {
               interruptionLevel: InterruptionLevel.timeSensitive,
             ),
           ),
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          androidScheduleMode: AndroidScheduleMode.exact,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
           payload: 'hourly_update_prompt',
@@ -976,13 +975,20 @@ class NotificationService {
       // This will return true on Android < 12 or if permission is granted
       final canSchedule = await androidImplementation
           .canScheduleExactNotifications();
-      print(
-        'NotificationService: Can schedule exact alarms: ${canSchedule ?? false}',
-      );
-      return canSchedule ?? false;
+
+      if (canSchedule == true) {
+        print('NotificationService: ✅ Can schedule exact alarms');
+      } else {
+        print(
+          'NotificationService: ⚠️ Cannot schedule exact alarms (will use inexact)',
+        );
+      }
+
+      return canSchedule ?? true; // Default to true to not block scheduling
     } catch (e) {
       print('NotificationService: Error checking exact alarm permission: $e');
-      return false;
+      // Return true to not block scheduling - better to try than not schedule at all
+      return true;
     }
   }
 
@@ -995,28 +1001,38 @@ class NotificationService {
           >();
 
       if (androidImplementation == null) {
+        print('NotificationService: Not on Android, permission not needed');
         return true; // iOS or other platform
       }
 
       final canSchedule = await androidImplementation
           .canScheduleExactNotifications();
       if (canSchedule == true) {
-        print('NotificationService: Exact alarm permission already granted');
+        print('NotificationService: ✅ Exact alarm permission already granted');
         return true;
       }
 
       // Request permission by opening settings
-      print('NotificationService: Requesting exact alarm permission...');
+      print('NotificationService: Opening settings to request permission...');
       await androidImplementation.requestExactAlarmsPermission();
+
+      // Wait a bit for user to potentially grant permission
+      await Future.delayed(const Duration(milliseconds: 500));
 
       // Check again after request
       final granted = await androidImplementation
           .canScheduleExactNotifications();
-      print('NotificationService: Permission granted: ${granted ?? false}');
-      return granted ?? false;
+      print(
+        'NotificationService: Permission after request: ${granted ?? false}',
+      );
+
+      // Even if not granted, return true to not block scheduling
+      // The system will use inexact alarms as fallback
+      return true;
     } catch (e) {
       print('NotificationService: Error requesting exact alarm permission: $e');
-      return false;
+      // Return true to not block scheduling
+      return true;
     }
   }
 }

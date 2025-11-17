@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz_data;
 
 class PermissionService {
   static final PermissionService _instance = PermissionService._internal();
@@ -72,15 +74,26 @@ class PermissionService {
   /// Request exact alarm permission (Android 12+)
   Future<void> _requestExactAlarmPermission(BuildContext context) async {
     try {
-      // First, try using permission_handler for Android 12+ (API 31+)
-      final scheduleExactAlarmStatus =
-          await Permission.scheduleExactAlarm.status;
+      // Use flutter_local_notifications method which properly handles Android 12+ requirements
+      final androidImplementation = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+
+      if (androidImplementation == null) {
+        print('PermissionService: Not on Android platform');
+        return;
+      }
+
+      // Check if exact alarms are allowed
+      final canSchedule =
+          await androidImplementation.canScheduleExactNotifications() ?? false;
 
       print(
-        'PermissionService: SCHEDULE_EXACT_ALARM status: $scheduleExactAlarmStatus',
+        'PermissionService: Can schedule exact notifications: $canSchedule',
       );
 
-      if (!scheduleExactAlarmStatus.isGranted) {
+      if (!canSchedule) {
         print('PermissionService: Exact alarm permission not granted');
 
         // Show dialog to explain why we need permission
@@ -89,73 +102,127 @@ class PermissionService {
             context,
             title: 'Enable Alarms & Reminders',
             message:
-                'This app needs "Alarms & reminders" permission to send you hourly update reminders at precise times. You\'ll find this app under Settings → Apps → Special access → Alarms & reminders.',
+                'This app needs "Alarms & reminders" permission to send you hourly update reminders at precise times.\n\n'
+                'After tapping Enable, please:\n'
+                '1. Find "srisparks_app" in the list\n'
+                '2. Toggle ON the permission\n'
+                '3. Return to the app',
             icon: Icons.alarm,
           );
 
           if (shouldRequest == true) {
+            print('PermissionService: Opening exact alarms settings...');
+
+            // This opens the SCHEDULE_EXACT_ALARM settings page
+            await androidImplementation.requestExactAlarmsPermission();
+
             print(
-              'PermissionService: Requesting SCHEDULE_EXACT_ALARM permission...',
+              'PermissionService: Settings page opened, waiting for user...',
             );
 
-            // Request the permission - this will open the system settings page
-            final result = await Permission.scheduleExactAlarm.request();
+            // Wait for user to potentially grant permission
+            await Future.delayed(const Duration(seconds: 3));
 
-            if (result.isGranted) {
-              print('PermissionService: ✅ Exact alarm permission granted');
-            } else if (result.isDenied) {
-              print('PermissionService: ❌ Exact alarm permission denied');
+            // Check if permission was granted
+            final granted =
+                await androidImplementation.canScheduleExactNotifications() ??
+                false;
 
-              // Show additional dialog to guide user
+            print(
+              'PermissionService: Permission check after settings: $granted',
+            );
+
+            // ALWAYS schedule registration alarm to ensure app appears in list
+            // Even if permission check returns false, user might have granted it
+            await _scheduleRegistrationAlarm();
+
+            if (!granted) {
+              print('PermissionService: ⚠️ Permission not confirmed yet');
+              // Show guide dialog only if context is still valid
               if (context.mounted) {
                 await _showAlarmPermissionGuideDialog(context);
               }
-            } else if (result.isPermanentlyDenied) {
-              print(
-                'PermissionService: ❌ Exact alarm permission permanently denied',
-              );
-
-              // Show dialog to go to settings
-              if (context.mounted) {
-                await _showGoToSettingsDialog(context);
-              }
+            } else {
+              print('PermissionService: ✅ Exact alarm permission confirmed');
             }
+          } else {
+            print('PermissionService: User declined alarm permission request');
           }
         }
       } else {
         print('PermissionService: ✅ Exact alarm permission already granted');
+
+        // Even if permission is granted, schedule registration alarm to ensure app shows in list
+        await _scheduleRegistrationAlarm();
       }
     } catch (e) {
       print('PermissionService: Error requesting exact alarm permission: $e');
-      print('PermissionService: Attempting fallback method...');
-
-      // Fallback to flutter_local_notifications method
-      try {
-        final androidImplementation = _notificationsPlugin
-            .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin
-            >();
-
-        if (androidImplementation != null) {
-          final canSchedule =
-              await androidImplementation.canScheduleExactNotifications() ??
-              false;
-
-          if (!canSchedule) {
-            print(
-              'PermissionService: Requesting via flutter_local_notifications...',
-            );
-            await androidImplementation.requestExactAlarmsPermission();
-            print('PermissionService: Fallback request completed');
-          }
-        }
-      } catch (fallbackError) {
-        print('PermissionService: Fallback method also failed: $fallbackError');
-      }
     }
   }
 
-  /// Show dialog to guide user to enable alarm permission manually
+  /// Schedule a test alarm to register the app in Android's "Alarms & reminders" list
+  /// Android only shows apps that have actually scheduled an exact alarm
+  Future<void> _scheduleRegistrationAlarm() async {
+    try {
+      print('PermissionService: Scheduling registration alarm...');
+
+      final androidImplementation = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+
+      if (androidImplementation == null) return;
+
+      // Initialize timezone
+      tz_data.initializeTimeZones();
+      tz.setLocalLocation(tz.getLocation('Asia/Kolkata'));
+
+      // Schedule a silent test notification 5 minutes from now using exact mode
+      // This MUST remain scheduled for Android to register the app in "Alarms & reminders"
+      final scheduledTime = tz.TZDateTime.now(
+        tz.getLocation('Asia/Kolkata'),
+      ).add(const Duration(minutes: 5));
+
+      const androidDetails = AndroidNotificationDetails(
+        'registration_channel',
+        'System Registration',
+        channelDescription:
+            'Used to register the app with Android alarm system',
+        importance: Importance.low,
+        priority: Priority.low,
+        playSound: false,
+        enableVibration: false,
+        showWhen: false,
+        visibility: NotificationVisibility.secret, // Hide from lock screen
+      );
+
+      const notificationDetails = NotificationDetails(android: androidDetails);
+
+      // Schedule with AndroidScheduleMode.exact to register the app
+      // DO NOT CANCEL - Android needs this to remain scheduled to show app in settings
+      await _notificationsPlugin.zonedSchedule(
+        99999, // Unique ID for registration alarm
+        'System Registration',
+        'App registered successfully',
+        scheduledTime,
+        notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.exact,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+
+      print(
+        'PermissionService: ✅ Registration alarm scheduled for ${scheduledTime.toString()}',
+      );
+      print(
+        'PermissionService: 🎉 App should now appear in "Alarms & reminders" list!',
+      );
+    } catch (e) {
+      print('PermissionService: Error scheduling registration alarm: $e');
+    }
+  }
+
+  /// Show detailed guide for enabling alarm permission manually
   Future<void> _showAlarmPermissionGuideDialog(BuildContext context) async {
     return showDialog(
       context: context,
@@ -166,7 +233,7 @@ class PermissionService {
           ),
           title: const Row(
             children: [
-              Icon(Icons.alarm, color: Colors.orange, size: 28),
+              Icon(Icons.alarm_add, color: Colors.orange, size: 28),
               SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -181,25 +248,34 @@ class PermissionService {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'To enable hourly update reminders, please follow these steps:',
+                'To receive hourly update reminders at precise times, please enable this permission:',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              ),
+              SizedBox(height: 16),
+              Text(
+                '1. Tap "Open Settings" below\n'
+                '2. Go to "Apps"\n'
+                '3. Find and tap "srisparks_app" or "SriSparks"\n'
+                '4. Tap "Special access" or scroll down\n'
+                '5. Tap "Alarms & reminders"\n'
+                '6. Enable "Allow setting alarms and reminders"',
+                style: TextStyle(fontSize: 14, height: 1.6),
               ),
               SizedBox(height: 12),
               Text(
-                '1. Go to Settings\n'
-                '2. Tap "Apps"\n'
-                '3. Find "SriSparks"\n'
-                '4. Tap "Special access"\n'
-                '5. Tap "Alarms & reminders"\n'
-                '6. Enable "Allow setting alarms and reminders"',
-                style: TextStyle(fontSize: 14, height: 1.5),
+                'Note: Without this, reminders may be delayed by several minutes.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              child: const Text('Skip', style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -397,21 +473,9 @@ class PermissionService {
       final notificationEnabled =
           await androidImplementation.areNotificationsEnabled() ?? false;
 
-      // Check exact alarm permission using permission_handler
-      bool exactAlarmEnabled = false;
-      try {
-        final scheduleExactAlarmStatus =
-            await Permission.scheduleExactAlarm.status;
-        exactAlarmEnabled = scheduleExactAlarmStatus.isGranted;
-      } catch (e) {
-        print(
-          'PermissionService: Error checking scheduleExactAlarm, trying fallback...',
-        );
-        // Fallback to flutter_local_notifications method
-        exactAlarmEnabled =
-            await androidImplementation.canScheduleExactNotifications() ??
-            false;
-      }
+      // Check exact alarm permission
+      final exactAlarmEnabled =
+          await androidImplementation.canScheduleExactNotifications() ?? false;
 
       final systemAlertWindow = await Permission.systemAlertWindow.isGranted;
 

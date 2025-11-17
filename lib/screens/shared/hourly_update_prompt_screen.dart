@@ -104,6 +104,16 @@ class _HourlyUpdatePromptScreenState extends State<HourlyUpdatePromptScreen> {
     final timeString =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
+    // Get screen size for responsive design
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Calculate responsive sizes
+    final iconSize = screenWidth * 0.15; // 15% of screen width
+    final timeFontSize = screenWidth * 0.12; // 12% of screen width
+    final titleFontSize = screenWidth * 0.05; // 5% of screen width
+    final subtitleFontSize = screenWidth * 0.035; // 3.5% of screen width
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -119,7 +129,7 @@ class _HourlyUpdatePromptScreenState extends State<HourlyUpdatePromptScreen> {
             children: [
               // Header with time and animation
               Container(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(screenWidth * 0.06), // 6% padding
                 child: Column(
                   children: [
                     // Animated icon
@@ -130,45 +140,47 @@ class _HourlyUpdatePromptScreenState extends State<HourlyUpdatePromptScreen> {
                         return Transform.scale(
                           scale: value,
                           child: Container(
-                            width: 100,
-                            height: 100,
+                            width: iconSize.clamp(80.0, 120.0),
+                            height: iconSize.clamp(80.0, 120.0),
                             decoration: BoxDecoration(
                               color: Colors.blue.shade100,
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               Icons.edit_note_rounded,
-                              size: 60,
+                              size: (iconSize * 0.6).clamp(48.0, 72.0),
                               color: Colors.blue.shade700,
                             ),
                           ),
                         );
                       },
                     ),
-                    const SizedBox(height: 24),
-                    // Time display
+                    SizedBox(height: screenHeight * 0.03),
+                    // Time display - responsive
                     Text(
                       timeString,
                       style: TextStyle(
-                        fontSize: 48,
+                        fontSize: timeFontSize.clamp(32.0, 56.0),
                         fontWeight: FontWeight.bold,
                         color: Colors.blue.shade700,
+                        letterSpacing: 2,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: screenHeight * 0.01),
                     Text(
                       'Time for your hourly update',
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: titleFontSize.clamp(16.0, 22.0),
                         fontWeight: FontWeight.w600,
                         color: Colors.grey.shade700,
                       ),
+                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: screenHeight * 0.008),
                     Text(
                       'Keep your team informed about your progress',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: subtitleFontSize.clamp(12.0, 16.0),
                         color: Colors.grey.shade600,
                       ),
                       textAlign: TextAlign.center,
@@ -180,8 +192,8 @@ class _HourlyUpdatePromptScreenState extends State<HourlyUpdatePromptScreen> {
               // Main content
               Expanded(
                 child: Container(
-                  margin: const EdgeInsets.all(24),
-                  padding: const EdgeInsets.all(24),
+                  margin: EdgeInsets.all(screenWidth * 0.06),
+                  padding: EdgeInsets.all(screenWidth * 0.06),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -202,14 +214,17 @@ class _HourlyUpdatePromptScreenState extends State<HourlyUpdatePromptScreen> {
                           Icon(
                             Icons.question_answer,
                             color: Colors.blue.shade700,
-                            size: 24,
+                            size: (screenWidth * 0.06).clamp(20.0, 28.0),
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: screenWidth * 0.03),
                           Expanded(
                             child: Text(
                               'What are you working on right now?',
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: (screenWidth * 0.045).clamp(
+                                  16.0,
+                                  20.0,
+                                ),
                                 fontWeight: FontWeight.bold,
                                 color: Colors.grey.shade800,
                               ),
@@ -217,7 +232,7 @@ class _HourlyUpdatePromptScreenState extends State<HourlyUpdatePromptScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: screenHeight * 0.02),
 
                       // Text input field
                       Expanded(
@@ -227,13 +242,15 @@ class _HourlyUpdatePromptScreenState extends State<HourlyUpdatePromptScreen> {
                           maxLines: null,
                           expands: true,
                           textAlignVertical: TextAlignVertical.top,
-                          style: const TextStyle(fontSize: 16),
+                          style: TextStyle(
+                            fontSize: (screenWidth * 0.04).clamp(14.0, 18.0),
+                          ),
                           decoration: InputDecoration(
                             hintText:
                                 'Example:\n• Meeting with client about project requirements\n• Working on feature implementation\n• Reviewing pull requests\n• Testing the new module',
                             hintStyle: TextStyle(
                               color: Colors.grey.shade400,
-                              fontSize: 14,
+                              fontSize: (screenWidth * 0.035).clamp(12.0, 16.0),
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -256,15 +273,15 @@ class _HourlyUpdatePromptScreenState extends State<HourlyUpdatePromptScreen> {
                             ),
                             filled: true,
                             fillColor: Colors.grey.shade50,
-                            contentPadding: const EdgeInsets.all(16),
+                            contentPadding: EdgeInsets.all(screenWidth * 0.04),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: screenHeight * 0.02),
 
                       // Info message
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.all(screenWidth * 0.03),
                         decoration: BoxDecoration(
                           color: Colors.blue.shade50,
                           borderRadius: BorderRadius.circular(8),
@@ -274,15 +291,18 @@ class _HourlyUpdatePromptScreenState extends State<HourlyUpdatePromptScreen> {
                           children: [
                             Icon(
                               Icons.info_outline,
-                              size: 20,
+                              size: (screenWidth * 0.05).clamp(18.0, 24.0),
                               color: Colors.blue.shade700,
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(width: screenWidth * 0.02),
                             Expanded(
                               child: Text(
                                 'Your location and time will be recorded automatically',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: (screenWidth * 0.03).clamp(
+                                    11.0,
+                                    14.0,
+                                  ),
                                   color: Colors.blue.shade700,
                                 ),
                               ),
@@ -297,13 +317,13 @@ class _HourlyUpdatePromptScreenState extends State<HourlyUpdatePromptScreen> {
 
               // Action buttons
               Container(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(screenWidth * 0.06),
                 child: Column(
                   children: [
                     // Submit button
                     SizedBox(
                       width: double.infinity,
-                      height: 56,
+                      height: (screenHeight * 0.07).clamp(50.0, 60.0),
                       child: ElevatedButton(
                         onPressed: _isSubmitting || _isSkipping
                             ? null
@@ -317,23 +337,32 @@ class _HourlyUpdatePromptScreenState extends State<HourlyUpdatePromptScreen> {
                           elevation: 2,
                         ),
                         child: _isSubmitting
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
+                            ? SizedBox(
+                                width: screenWidth * 0.06,
+                                height: screenWidth * 0.06,
+                                child: const CircularProgressIndicator(
                                   color: Colors.white,
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Row(
+                            : Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.check_circle, size: 24),
-                                  SizedBox(width: 8),
+                                  Icon(
+                                    Icons.check_circle,
+                                    size: (screenWidth * 0.06).clamp(
+                                      20.0,
+                                      28.0,
+                                    ),
+                                  ),
+                                  SizedBox(width: screenWidth * 0.02),
                                   Text(
                                     'Submit Update',
                                     style: TextStyle(
-                                      fontSize: 18,
+                                      fontSize: (screenWidth * 0.045).clamp(
+                                        16.0,
+                                        20.0,
+                                      ),
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -341,11 +370,11 @@ class _HourlyUpdatePromptScreenState extends State<HourlyUpdatePromptScreen> {
                               ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: screenHeight * 0.015),
                     // Skip button
                     SizedBox(
                       width: double.infinity,
-                      height: 48,
+                      height: (screenHeight * 0.06).clamp(44.0, 52.0),
                       child: TextButton(
                         onPressed: _isSubmitting || _isSkipping
                             ? null
@@ -358,17 +387,20 @@ class _HourlyUpdatePromptScreenState extends State<HourlyUpdatePromptScreen> {
                         ),
                         child: _isSkipping
                             ? SizedBox(
-                                width: 20,
-                                height: 20,
+                                width: screenWidth * 0.05,
+                                height: screenWidth * 0.05,
                                 child: CircularProgressIndicator(
                                   color: Colors.grey.shade600,
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text(
+                            : Text(
                                 'Skip for now',
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: (screenWidth * 0.04).clamp(
+                                    14.0,
+                                    18.0,
+                                  ),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
